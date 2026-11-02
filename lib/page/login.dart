@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import '../data/services/auth_service.dart';
+import 'beranda.dart';
+import 'register.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -9,14 +12,77 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController _emailController = TextEditingController(text: 'demo@gmail.com');
-  final TextEditingController _passwordController = TextEditingController(text: 'secretpassword');
+  final TextEditingController _passwordController = TextEditingController(text: 'password123');
+  final AuthService _authService = AuthService();
   bool _obscurePassword = true;
+  bool _isLoading = false;
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleLogin() async {
+    final identifier = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (identifier.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: Color(0xFFFF5252),
+          content: Text('Email/Username dan Password tidak boleh kosong.'),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final user = await _authService.login(
+        identifier: identifier,
+        password: password,
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFF00E676),
+          content: Text('Selamat datang kembali, ${user.fullName}!'),
+        ),
+      );
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const BerandaPage()),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFFFF5252),
+          content: Text(e.toString().replaceAll('Exception: ', '')),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _fillDemoAccount() {
+    setState(() {
+      _emailController.text = 'demo@gmail.com';
+      _passwordController.text = 'password123';
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        backgroundColor: Color(0xFF181A22),
+        content: Text('Akun demo terisi: demo@gmail.com / password123'),
+      ),
+    );
   }
 
   @override
@@ -247,33 +313,40 @@ class _LoginPageState extends State<LoginPage> {
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton(
-                  onPressed: () {},
+                  onPressed: _isLoading ? null : _handleLogin,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primaryYellow,
+                    disabledBackgroundColor: primaryYellow.withValues(alpha: 0.5),
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: const Text(
-                    'Masuk ke Akun',
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.black),
+                        )
+                      : const Text(
+                          'Masuk ke Akun',
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                 ),
               ),
 
               const SizedBox(height: 14),
 
-              // Login Dengan Google Button
+              // Isi Akun Demo Cepat Button
               SizedBox(
                 width: double.infinity,
                 height: 50,
-                child: OutlinedButton(
-                  onPressed: () {},
+                child: OutlinedButton.icon(
+                  onPressed: _fillDemoAccount,
                   style: OutlinedButton.styleFrom(
                     backgroundColor: inputFillColor,
                     side: const BorderSide(
@@ -284,37 +357,14 @@ class _LoginPageState extends State<LoginPage> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // Google 'G' icon badge
-                      Container(
-                        width: 24,
-                        height: 24,
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                        ),
-                        alignment: Alignment.center,
-                        child: const Text(
-                          'G',
-                          style: TextStyle(
-                            color: Color(0xFF4285F4),
-                            fontWeight: FontWeight.w900,
-                            fontSize: 15,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      const Text(
-                        'Login Dengan Google',
-                        style: TextStyle(
-                          color: primaryYellow,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
+                  icon: const Icon(Icons.flash_on_rounded, color: primaryYellow, size: 20),
+                  label: const Text(
+                    'Isi Akun Demo Cepat',
+                    style: TextStyle(
+                      color: primaryYellow,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ),
@@ -324,7 +374,12 @@ class _LoginPageState extends State<LoginPage> {
               // Footer: Belum punya akun? Daftar Sekarang
               Center(
                 child: GestureDetector(
-                  onTap: () {},
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const RegisterPage()),
+                    );
+                  },
                   child: RichText(
                     text: const TextSpan(
                       text: 'Belum punya akun? ',

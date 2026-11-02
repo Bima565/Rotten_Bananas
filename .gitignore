@@ -64,3 +64,7 @@ android/key.properties
 # Flutter generated files
 .flutter-plugins
 
+# Graphify artifacts
+graphify-out/
+.graphify*
+
