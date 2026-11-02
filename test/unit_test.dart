@@ -1,8 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_application_1/core/app_colors.dart';
 import 'package:flutter_application_1/core/banana_score_helper.dart';
+import 'package:flutter_application_1/core/debouncer.dart';
 import 'package:flutter_application_1/core/password_hasher.dart';
 import 'package:flutter_application_1/data/models/genre_model.dart';
+import 'package:flutter_application_1/data/models/movie_detail_model.dart';
 import 'package:flutter_application_1/data/models/movie_model.dart';
 import 'package:flutter_application_1/data/models/user_model.dart';
 import 'package:flutter_application_1/page/category_movies_page.dart';
@@ -109,6 +111,76 @@ void main() {
     test('defaultGenres contains essential genres', () {
       expect(GenreModel.defaultGenres.any((g) => g.id == 28 && g.name == 'Action'), isTrue);
       expect(GenreModel.defaultGenres.any((g) => g.id == 878 && g.name == 'Sci-Fi'), isTrue);
+    });
+  });
+
+  group('MovieDetailModel and VideoModel Tests', () {
+    test('VideoModel properties identify YouTube trailers', () {
+      final trailer = VideoModel.fromJson({
+        'id': 'v1',
+        'key': 'dQw4w9WgXcQ',
+        'name': 'Official Trailer',
+        'site': 'YouTube',
+        'type': 'Trailer',
+        'official': true,
+      });
+
+      expect(trailer.isYouTube, isTrue);
+      expect(trailer.isTrailer, isTrue);
+      expect(trailer.official, isTrue);
+    });
+
+    test('MovieDetailModel formats duration and finds main trailer', () {
+      final detail = MovieDetailModel(
+        id: 1,
+        title: 'Dune: Part Two',
+        overview: 'Overview text',
+        voteAverage: 8.5,
+        voteCount: 4000,
+        releaseDate: '2024-03-01',
+        runtime: 166, // 2j 46m
+        status: 'Released',
+        tagline: 'Long live the fighters.',
+        genres: [const GenreModel(id: 878, name: 'Sci-Fi')],
+        videos: [
+          const VideoModel(
+            id: '1',
+            key: 'Way9Dexny3w',
+            name: 'Official Trailer 3',
+            site: 'YouTube',
+            type: 'Trailer',
+            official: true,
+          ),
+        ],
+        cast: [
+          const CastModel(
+            id: 1,
+            name: 'Timothée Chalamet',
+            character: 'Paul Atreides',
+            profilePath: '/actor.jpg',
+          ),
+        ],
+      );
+
+      expect(detail.formattedDuration, '2j 46m');
+      expect(detail.mainTrailer?.key, 'Way9Dexny3w');
+      expect(detail.cast.first.name, 'Timothée Chalamet');
+    });
+  });
+
+  group('Debouncer Tests', () {
+    test('Debouncer runs action after specified delay', () async {
+      final debouncer = Debouncer(milliseconds: 50);
+      int callCount = 0;
+
+      debouncer.run(() => callCount++);
+      debouncer.run(() => callCount++);
+      debouncer.run(() => callCount++);
+
+      expect(callCount, 0); // Not called immediately
+      await Future.delayed(const Duration(milliseconds: 80));
+      expect(callCount, 1); // Debounced to 1 call
+      debouncer.dispose();
     });
   });
 }

@@ -8,8 +8,12 @@ import '../data/models/genre_model.dart';
 import '../data/models/movie_model.dart';
 import '../data/services/auth_service.dart';
 import '../data/services/tmdb_service.dart';
+import '../data/services/watchlist_service.dart';
 import 'category_movies_page.dart';
+import 'explore_filter_page.dart';
 import 'login.dart';
+import 'movie_detail_page.dart';
+import 'watchlist_page.dart';
 
 class BerandaPage extends StatefulWidget {
   const BerandaPage({super.key});
@@ -21,6 +25,7 @@ class BerandaPage extends StatefulWidget {
 class _BerandaPageState extends State<BerandaPage> {
   final TmdbService _tmdbService = TmdbService();
   final AuthService _authService = AuthService();
+  final WatchlistService _watchlistService = WatchlistService();
 
   String _userName = 'Penggemar Film';
   int _currentNavIndex = 0;
@@ -189,22 +194,30 @@ class _BerandaPageState extends State<BerandaPage> {
               // Search Bar Trigger
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceCard,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.inputBorder),
-                  ),
-                  child: const Row(
-                    children: [
-                      Icon(Icons.search_rounded, color: AppColors.textSecondary, size: 20),
-                      SizedBox(width: 10),
-                      Text(
-                        'Cari film, trailer, atau genre...',
-                        style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
-                      ),
-                    ],
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ExploreFilterPage()),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceCard,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.inputBorder),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.search_rounded, color: AppColors.accentYellow, size: 20),
+                        SizedBox(width: 10),
+                        Text(
+                          'Cari film, trailer, atau genre...',
+                          style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -389,7 +402,21 @@ class _BerandaPageState extends State<BerandaPage> {
         child: BottomNavigationBar(
           currentIndex: _currentNavIndex,
           onTap: (index) {
-            setState(() => _currentNavIndex = index);
+            if (index == 1) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ExploreFilterPage()),
+              );
+            } else if (index == 2) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const WatchlistPage()),
+              );
+            } else if (index == 3) {
+              _handleLogout();
+            } else {
+              setState(() => _currentNavIndex = index);
+            }
           },
           backgroundColor: AppColors.surfaceCard,
           selectedItemColor: AppColors.accentYellow,
@@ -446,17 +473,24 @@ class _BerandaPageState extends State<BerandaPage> {
             final movie = bannerMovies[index];
             final score = BananaScoreHelper.calculate(movie.voteAverage);
 
-            return Container(
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.surfaceElevated),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(15),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
+            return GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => MovieDetailPage(movie: movie)),
+                );
+              },
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.surfaceElevated),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(15),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
                     // Backdrop Image
                     if (movie.backdropUrl.isNotEmpty)
                       CachedNetworkImage(
@@ -559,11 +593,9 @@ class _BerandaPageState extends State<BerandaPage> {
                                   ),
                                 ),
                                 onPressed: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      backgroundColor: AppColors.surfaceCard,
-                                      content: Text('Trailer: ${movie.title}'),
-                                    ),
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(builder: (_) => MovieDetailPage(movie: movie)),
                                   );
                                 },
                               ),
@@ -586,13 +618,30 @@ class _BerandaPageState extends State<BerandaPage> {
                                     fontWeight: FontWeight.w700,
                                   ),
                                 ),
-                                onPressed: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      backgroundColor: AppColors.surfaceCard,
-                                      content: Text('Disimpan ke Watchlist: ${movie.title}'),
-                                    ),
-                                  );
+                                onPressed: () async {
+                                  try {
+                                    final isSaved = await _watchlistService.toggleWatchlist(movie);
+                                    if (!context.mounted) return;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        backgroundColor: isSaved ? AppColors.statusFresh : AppColors.surfaceCard,
+                                        content: Text(
+                                          isSaved
+                                              ? 'Film "${movie.title}" disimpan ke Watchlist! 🔖'
+                                              : 'Film dihapus dari Watchlist.',
+                                        ),
+                                        duration: const Duration(seconds: 2),
+                                      ),
+                                    );
+                                  } catch (e) {
+                                    if (!context.mounted) return;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        backgroundColor: AppColors.statusRotten,
+                                        content: Text(e.toString().replaceAll('Exception: ', '')),
+                                      ),
+                                    );
+                                  }
                                 },
                               ),
                             ],
@@ -603,9 +652,10 @@ class _BerandaPageState extends State<BerandaPage> {
                   ],
                 ),
               ),
-            );
-          },
-        ),
+            ),
+          );
+        },
+      ),
         const SizedBox(height: 10),
         // Indicator Dots
         Row(
@@ -689,9 +739,16 @@ class _BerandaPageState extends State<BerandaPage> {
                         final movie = movies[index];
                         final score = BananaScoreHelper.calculate(movie.voteAverage);
 
-                        return SizedBox(
-                          width: 130,
-                          child: Column(
+                        return GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => MovieDetailPage(movie: movie)),
+                            );
+                          },
+                          child: SizedBox(
+                            width: 130,
+                            child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               // Poster Card with Aspect Ratio 2:3
@@ -782,8 +839,9 @@ class _BerandaPageState extends State<BerandaPage> {
                               ),
                             ],
                           ),
-                        );
-                      },
+                        ),
+                      );
+                    },
                     ),
         ),
       ],

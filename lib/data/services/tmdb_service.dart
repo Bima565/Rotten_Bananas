@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../models/genre_model.dart';
+import '../models/movie_detail_model.dart';
 import '../models/movie_model.dart';
 
 class TmdbService {
@@ -116,6 +117,53 @@ class TmdbService {
       return results.map((m) => MovieModel.fromJson(m as Map<String, dynamic>)).toList();
     } catch (_) {
       return [];
+    }
+  }
+
+  Future<List<MovieModel>> searchMovies(String query, {int page = 1}) async {
+    final cleanQuery = query.trim();
+    if (cleanQuery.isEmpty) return [];
+
+    try {
+      final response = await _dio.get(
+        '/search/movie',
+        queryParameters: {
+          'language': 'id-ID',
+          'query': cleanQuery,
+          'page': page,
+          'include_adult': false,
+        },
+      );
+      final results = response.data['results'] as List<dynamic>? ?? [];
+      return results.map((m) => MovieModel.fromJson(m as Map<String, dynamic>)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<MovieDetailModel?> getMovieDetail(int movieId) async {
+    try {
+      final response = await _dio.get(
+        '/movie/$movieId',
+        queryParameters: {
+          'language': 'id-ID',
+          'append_to_response': 'videos,credits',
+        },
+      );
+      return MovieDetailModel.fromJson(response.data as Map<String, dynamic>);
+    } catch (_) {
+      // Fallback tanpa language jika id-ID tidak lengkap
+      try {
+        final fallbackResponse = await _dio.get(
+          '/movie/$movieId',
+          queryParameters: {
+            'append_to_response': 'videos,credits',
+          },
+        );
+        return MovieDetailModel.fromJson(fallbackResponse.data as Map<String, dynamic>);
+      } catch (_) {
+        return null;
+      }
     }
   }
 

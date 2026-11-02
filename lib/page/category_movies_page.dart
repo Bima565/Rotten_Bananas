@@ -5,6 +5,7 @@ import '../core/app_colors.dart';
 import '../core/banana_score_helper.dart';
 import '../data/models/movie_model.dart';
 import '../data/services/tmdb_service.dart';
+import 'movie_detail_page.dart';
 
 enum CategoryType {
   nowPlaying,
@@ -194,17 +195,24 @@ class _CategoryMoviesPageState extends State<CategoryMoviesPage> {
         final movie = _movies[index];
         final score = BananaScoreHelper.calculate(movie.voteAverage);
 
-        return Container(
-          decoration: BoxDecoration(
-            color: AppColors.surfaceCard,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.inputBorder, width: 0.8),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(13),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+        return GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => MovieDetailPage(movie: movie)),
+            );
+          },
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppColors.surfaceCard,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.inputBorder, width: 0.8),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(13),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                 // Poster Image (Expanded)
                 Expanded(
                   child: Stack(
@@ -302,10 +310,11 @@ class _CategoryMoviesPageState extends State<CategoryMoviesPage> {
               ],
             ),
           ),
-        );
-      },
-    );
-  }
+        ),
+      );
+    },
+  );
+}
 
   // --- List View (Mode Baris / Horizontal Card) ---
   Widget _buildListView() {
@@ -328,14 +337,21 @@ class _CategoryMoviesPageState extends State<CategoryMoviesPage> {
         final movie = _movies[index];
         final score = BananaScoreHelper.calculate(movie.voteAverage);
 
-        return Container(
-          height: 120,
-          decoration: BoxDecoration(
-            color: AppColors.surfaceCard,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.inputBorder, width: 0.8),
-          ),
-          child: Row(
+        return GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => MovieDetailPage(movie: movie)),
+            );
+          },
+          child: Container(
+            height: 120,
+            decoration: BoxDecoration(
+              color: AppColors.surfaceCard,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.inputBorder, width: 0.8),
+            ),
+            child: Row(
             children: [
               // Poster
               ClipRRect(
@@ -426,10 +442,11 @@ class _CategoryMoviesPageState extends State<CategoryMoviesPage> {
               ),
             ],
           ),
-        );
-      },
-    );
-  }
+        ),
+      );
+    },
+  );
+}
 
   // --- Shimmer Placeholders ---
   Widget _buildShimmerLoading() {
