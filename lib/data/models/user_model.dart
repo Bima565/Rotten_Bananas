@@ -1,4 +1,5 @@
 class UserModel {
+  final String? uid;
   final int? id;
   final String fullName;
   final String username;
@@ -11,11 +12,12 @@ class UserModel {
   final String updatedAt;
 
   UserModel({
+    this.uid,
     this.id,
     required this.fullName,
     required this.username,
     required this.email,
-    required this.passwordHash,
+    this.passwordHash = '',
     this.bio = 'Pecinta film & pemburu trailer.',
     this.avatarPath,
     this.favoriteGenres = '',
@@ -41,8 +43,23 @@ class UserModel {
     return map;
   }
 
-  factory UserModel.fromMap(Map<String, dynamic> map) {
+  Map<String, dynamic> toFirestore() {
+    return {
+      'uid': uid,
+      'full_name': fullName,
+      'username': username,
+      'email': email,
+      'bio': bio,
+      'avatar_path': avatarPath,
+      'favorite_genres': favoriteGenres,
+      'created_at': createdAt,
+      'updated_at': updatedAt,
+    };
+  }
+
+  factory UserModel.fromMap(Map<String, dynamic> map, [String? docId]) {
     return UserModel(
+      uid: docId ?? map['uid'] as String?,
       id: map['id'] as int?,
       fullName: map['full_name'] as String? ?? '',
       username: map['username'] as String? ?? '',
@@ -56,7 +73,12 @@ class UserModel {
     );
   }
 
+  factory UserModel.fromFirestore(Map<String, dynamic> data, String uid) {
+    return UserModel.fromMap(data, uid);
+  }
+
   UserModel copyWith({
+    String? uid,
     int? id,
     String? fullName,
     String? username,
@@ -69,6 +91,7 @@ class UserModel {
     String? updatedAt,
   }) {
     return UserModel(
+      uid: uid ?? this.uid,
       id: id ?? this.id,
       fullName: fullName ?? this.fullName,
       username: username ?? this.username,

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../core/app_colors.dart';
 import '../data/models/genre_model.dart';
 import '../data/services/auth_service.dart';
-import 'beranda.dart';
+import 'login.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -78,15 +78,28 @@ class _RegisterPageState extends State<RegisterPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor: AppColors.statusFresh,
-          content: Text('Selamat datang, ${user.fullName}! Akun berhasil dibuat.'),
+          content: Text('Akun ${user.fullName} berhasil dibuat! Silakan masuk.'),
         ),
       );
 
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => const BerandaPage()),
-        (route) => false,
-      );
+      final resultData = {
+        'identifier': _emailController.text.trim(),
+        'password': _passwordController.text,
+      };
+
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context, resultData);
+      } else {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => LoginPage(
+              initialIdentifier: resultData['identifier'],
+              initialPassword: resultData['password'],
+            ),
+          ),
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

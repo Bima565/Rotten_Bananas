@@ -1,21 +1,40 @@
 import 'package:flutter/material.dart';
+import '../core/google_logo.dart';
 import '../data/services/auth_service.dart';
 import 'beranda.dart';
 import 'register.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+  final String? initialIdentifier;
+  final String? initialPassword;
+
+  const LoginPage({
+    super.key,
+    this.initialIdentifier,
+    this.initialPassword,
+  });
 
   @override
   State<LoginPage> createState() => _LoginPageState();
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final TextEditingController _emailController = TextEditingController(text: 'demo@gmail.com');
-  final TextEditingController _passwordController = TextEditingController(text: 'password123');
+  late final TextEditingController _emailController;
+  late final TextEditingController _passwordController;
   final AuthService _authService = AuthService();
   bool _obscurePassword = true;
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _emailController = TextEditingController(
+      text: widget.initialIdentifier ?? 'demo@gmail.com',
+    );
+    _passwordController = TextEditingController(
+      text: widget.initialPassword ?? 'password123',
+    );
+  }
 
   @override
   void dispose() {
@@ -61,10 +80,35 @@ class _LoginPageState extends State<LoginPage> {
       );
     } catch (e) {
       if (!mounted) return;
+      final errorMessage = e.toString().replaceAll('Exception: ', '');
+      final isUnregistered = errorMessage.contains('belum terdaftar');
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor: const Color(0xFFFF5252),
-          content: Text(e.toString().replaceAll('Exception: ', '')),
+          content: Text(errorMessage),
+          action: isUnregistered
+              ? SnackBarAction(
+                  label: 'DAFTAR',
+                  textColor: Colors.white,
+                  onPressed: () async {
+                    final result = await Navigator.push<Map<String, String>>(
+                      context,
+                      MaterialPageRoute(builder: (_) => const RegisterPage()),
+                    );
+                    if (result != null && mounted) {
+                      setState(() {
+                        if (result['identifier'] != null) {
+                          _emailController.text = result['identifier']!;
+                        }
+                        if (result['password'] != null) {
+                          _passwordController.text = result['password']!;
+                        }
+                      });
+                    }
+                  },
+                )
+              : null,
         ),
       );
     } finally {
@@ -72,17 +116,38 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  void _fillDemoAccount() {
-    setState(() {
-      _emailController.text = 'demo@gmail.com';
-      _passwordController.text = 'password123';
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        backgroundColor: Color(0xFF181A22),
-        content: Text('Akun demo terisi: demo@gmail.com / password123'),
-      ),
-    );
+  Future<void> _handleGoogleLogin() async {
+    setState(() => _isLoading = true);
+    try {
+      final user = await _authService.signInWithGoogle();
+      if (user == null) {
+        if (mounted) setState(() => _isLoading = false);
+        return;
+      }
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFF00E676),
+          content: Text('Masuk dengan Google berhasil! Halo, ${user.fullName}.'),
+        ),
+      );
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const BerandaPage()),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFFFF5252),
+          content: Text('Login Google gagal: ${e.toString().replaceAll('Exception: ', '')}'),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -341,12 +406,12 @@ class _LoginPageState extends State<LoginPage> {
 
               const SizedBox(height: 14),
 
-              // Isi Akun Demo Cepat Button
+              // Login Dengan Google Button
               SizedBox(
                 width: double.infinity,
                 height: 50,
-                child: OutlinedButton.icon(
-                  onPressed: _fillDemoAccount,
+                child: OutlinedButton(
+                  onPressed: _handleGoogleLogin,
                   style: OutlinedButton.styleFrom(
                     backgroundColor: inputFillColor,
                     side: const BorderSide(
@@ -357,14 +422,30 @@ class _LoginPageState extends State<LoginPage> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  icon: const Icon(Icons.flash_on_rounded, color: primaryYellow, size: 20),
-                  label: const Text(
-                    'Isi Akun Demo Cepat',
-                    style: TextStyle(
-                      color: primaryYellow,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Google Original Multi-Color Logo badge
+                      Container(
+                        width: 26,
+                        height: 26,
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                        alignment: Alignment.center,
+                        child: const GoogleLogo(size: 15),
+                      ),
+                      const SizedBox(width: 10),
+                      const Text(
+                        'Login Dengan Google',
+                        style: TextStyle(
+                          color: primaryYellow,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -374,11 +455,21 @@ class _LoginPageState extends State<LoginPage> {
               // Footer: Belum punya akun? Daftar Sekarang
               Center(
                 child: GestureDetector(
-                  onTap: () {
-                    Navigator.push(
+                  onTap: () async {
+                    final result = await Navigator.push<Map<String, String>>(
                       context,
                       MaterialPageRoute(builder: (_) => const RegisterPage()),
                     );
+                    if (result != null && mounted) {
+                      setState(() {
+                        if (result['identifier'] != null) {
+                          _emailController.text = result['identifier']!;
+                        }
+                        if (result['password'] != null) {
+                          _passwordController.text = result['password']!;
+                        }
+                      });
+                    }
                   },
                   child: RichText(
                     text: const TextSpan(

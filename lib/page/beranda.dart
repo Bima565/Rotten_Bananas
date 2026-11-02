@@ -8,6 +8,7 @@ import '../data/models/genre_model.dart';
 import '../data/models/movie_model.dart';
 import '../data/services/auth_service.dart';
 import '../data/services/tmdb_service.dart';
+import 'category_movies_page.dart';
 import 'login.dart';
 
 class BerandaPage extends StatefulWidget {
@@ -24,6 +25,7 @@ class _BerandaPageState extends State<BerandaPage> {
   String _userName = 'Penggemar Film';
   int _currentNavIndex = 0;
   int _selectedGenreId = 0; // 0 = Semua
+  int _carouselIndex = 0;
 
   bool _isLoading = true;
   List<MovieModel> _trendingMovies = [];
@@ -134,18 +136,25 @@ class _BerandaPageState extends State<BerandaPage> {
               '🍌 ROTTEN BANANAS',
               style: TextStyle(
                 color: AppColors.accentYellow,
-                fontSize: 18,
+                fontSize: 16,
                 fontWeight: FontWeight.w900,
                 letterSpacing: 0.5,
               ),
             ),
-            const Spacer(),
-            Text(
-              'Halo, $_userName!',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
+            const SizedBox(width: 8),
+            Expanded(
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: Text(
+                  'Halo, $_userName!',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
             ),
             const SizedBox(width: 8),
@@ -212,15 +221,44 @@ class _BerandaPageState extends State<BerandaPage> {
 
               // Kategori / Genre Cepat (Horizontal Chips)
               if (_genres.isNotEmpty) ...[
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: Text(
-                    '🗂️ Kategori Cepat',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                    ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        '🗂️ Kategori Cepat',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      if (_selectedGenreId != 0)
+                        GestureDetector(
+                          onTap: () {
+                            final genre = _genres.firstWhere((g) => g.id == _selectedGenreId);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => CategoryMoviesPage(
+                                  title: 'Kategori: ${genre.name}',
+                                  categoryType: CategoryType.genre,
+                                  genreId: genre.id,
+                                ),
+                              ),
+                            );
+                          },
+                          child: const Text(
+                            'Lihat Semua >',
+                            style: TextStyle(
+                              color: AppColors.accentYellow,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -267,6 +305,17 @@ class _BerandaPageState extends State<BerandaPage> {
                 title: '🎬 Sedang Tayang di Bioskop',
                 movies: _filterByGenre(_nowPlayingMovies),
                 isLoading: _isLoading,
+                onSeeAll: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const CategoryMoviesPage(
+                        title: '🎬 Sedang Tayang di Bioskop',
+                        categoryType: CategoryType.nowPlaying,
+                      ),
+                    ),
+                  );
+                },
               ),
 
               const SizedBox(height: 24),
@@ -276,6 +325,17 @@ class _BerandaPageState extends State<BerandaPage> {
                 title: '🍿 Paling Populer',
                 movies: _filterByGenre(_popularMovies),
                 isLoading: _isLoading,
+                onSeeAll: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const CategoryMoviesPage(
+                        title: '🍿 Paling Populer',
+                        categoryType: CategoryType.popular,
+                      ),
+                    ),
+                  );
+                },
               ),
 
               const SizedBox(height: 24),
@@ -285,6 +345,17 @@ class _BerandaPageState extends State<BerandaPage> {
                 title: '⭐ Rating Tertinggi',
                 movies: _filterByGenre(_topRatedMovies),
                 isLoading: _isLoading,
+                onSeeAll: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const CategoryMoviesPage(
+                        title: '⭐ Rating Tertinggi',
+                        categoryType: CategoryType.topRated,
+                      ),
+                    ),
+                  );
+                },
               ),
 
               const SizedBox(height: 24),
@@ -294,6 +365,17 @@ class _BerandaPageState extends State<BerandaPage> {
                 title: '📅 Segera Tayang di Bioskop',
                 movies: _filterByGenre(_upcomingMovies),
                 isLoading: _isLoading,
+                onSeeAll: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const CategoryMoviesPage(
+                        title: '📅 Segera Tayang di Bioskop',
+                        categoryType: CategoryType.upcoming,
+                      ),
+                    ),
+                  );
+                },
               ),
             ],
           ),
@@ -340,179 +422,209 @@ class _BerandaPageState extends State<BerandaPage> {
 
   // --- Hero Trending Carousel ---
   Widget _buildTrendingCarousel() {
-    return CarouselSlider.builder(
-      itemCount: _trendingMovies.take(5).length,
-      options: CarouselOptions(
-        height: 215,
-        viewportFraction: 0.92,
-        enlargeCenterPage: true,
-        autoPlay: true,
-        autoPlayInterval: const Duration(seconds: 4),
-        autoPlayAnimationDuration: const Duration(milliseconds: 800),
-      ),
-      itemBuilder: (context, index, realIndex) {
-        final movie = _trendingMovies[index];
-        final score = BananaScoreHelper.calculate(movie.voteAverage);
+    final bannerMovies = _trendingMovies.take(5).toList();
+    if (bannerMovies.isEmpty) return const SizedBox.shrink();
 
-        return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 4),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.surfaceElevated),
+    return Column(
+      children: [
+        CarouselSlider.builder(
+          itemCount: bannerMovies.length,
+          options: CarouselOptions(
+            height: 215,
+            viewportFraction: 0.92,
+            enlargeCenterPage: true,
+            autoPlay: true,
+            autoPlayInterval: const Duration(seconds: 4),
+            autoPlayAnimationDuration: const Duration(milliseconds: 800),
+            onPageChanged: (index, reason) {
+              setState(() {
+                _carouselIndex = index;
+              });
+            },
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(15),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                // Backdrop Image
-                if (movie.backdropUrl.isNotEmpty)
-                  CachedNetworkImage(
-                    imageUrl: movie.backdropUrl,
-                    fit: BoxFit.cover,
-                    placeholder: (_, __) => Container(color: AppColors.surfaceElevated),
-                    errorWidget: (_, __, ___) => Container(
-                      color: AppColors.surfaceCard,
-                      child: const Center(
-                        child: Icon(Icons.movie_filter_rounded, color: AppColors.textSecondary, size: 40),
-                      ),
-                    ),
-                  )
-                else
-                  Container(color: AppColors.surfaceElevated),
+          itemBuilder: (context, index, realIndex) {
+            final movie = bannerMovies[index];
+            final score = BananaScoreHelper.calculate(movie.voteAverage);
 
-                // Dark Cinema Gradient
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        AppColors.backgroundPrimary.withValues(alpha: 0.3),
-                        AppColors.backgroundPrimary.withValues(alpha: 0.85),
-                        AppColors.backgroundPrimary,
-                      ],
-                      stops: const [0.0, 0.4, 0.75, 1.0],
-                    ),
-                  ),
-                ),
-
-                // Info Overlay
-                Positioned(
-                  left: 16,
-                  right: 16,
-                  bottom: 14,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Banana Score Badge
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.75),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: score.color.withValues(alpha: 0.5)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(score.icon, style: const TextStyle(fontSize: 12)),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${score.percentage}% ${score.label}',
-                              style: TextStyle(
-                                color: score.color,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-
-                      // Movie Title & Year
-                      Text(
-                        '${movie.title} (${movie.releaseYear})',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-
-                      // Trailer & Watchlist buttons
-                      Row(
-                        children: [
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.accentYellow,
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                            icon: const Icon(Icons.play_arrow_rounded, color: Colors.black, size: 18),
-                            label: const Text(
-                              'Tonton Trailer',
-                              style: TextStyle(
-                                color: Colors.black,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            onPressed: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  backgroundColor: AppColors.surfaceCard,
-                                  content: Text('Trailer: ${movie.title}'),
-                                ),
-                              );
-                            },
+            return Container(
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.surfaceElevated),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(15),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    // Backdrop Image
+                    if (movie.backdropUrl.isNotEmpty)
+                      CachedNetworkImage(
+                        imageUrl: movie.backdropUrl,
+                        fit: BoxFit.cover,
+                        placeholder: (_, __) => Container(color: AppColors.surfaceElevated),
+                        errorWidget: (_, __, ___) => Container(
+                          color: AppColors.surfaceCard,
+                          child: const Center(
+                            child: Icon(Icons.movie_filter_rounded, color: AppColors.textSecondary, size: 40),
                           ),
-                          const SizedBox(width: 10),
-                          OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              side: const BorderSide(color: AppColors.accentYellow, width: 1),
-                              backgroundColor: Colors.black.withValues(alpha: 0.5),
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      )
+                    else
+                      Container(color: AppColors.surfaceElevated),
+
+                    // Dark Cinema Gradient
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            AppColors.backgroundPrimary.withValues(alpha: 0.3),
+                            AppColors.backgroundPrimary.withValues(alpha: 0.85),
+                            AppColors.backgroundPrimary,
+                          ],
+                          stops: const [0.0, 0.4, 0.75, 1.0],
+                        ),
+                      ),
+                    ),
+
+                    // Info Overlay
+                    Positioned(
+                      left: 16,
+                      right: 16,
+                      bottom: 14,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Banana Score Badge
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.75),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: score.color.withValues(alpha: 0.5)),
                             ),
-                            icon: const Icon(Icons.bookmark_add_outlined, color: AppColors.accentYellow, size: 16),
-                            label: const Text(
-                              'Simpan',
-                              style: TextStyle(
-                                color: AppColors.accentYellow,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            onPressed: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  backgroundColor: AppColors.surfaceCard,
-                                  content: Text('Disimpan ke Watchlist: ${movie.title}'),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(score.icon, style: const TextStyle(fontSize: 12)),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${score.percentage}% ${score.label}',
+                                  style: TextStyle(
+                                    color: score.color,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w800,
+                                  ),
                                 ),
-                              );
-                            },
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+
+                          // Movie Title & Year
+                          Text(
+                            '${movie.title} (${movie.releaseYear})',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+
+                          // Trailer & Watchlist buttons
+                          Row(
+                            children: [
+                              ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.accentYellow,
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                icon: const Icon(Icons.play_arrow_rounded, color: Colors.black, size: 18),
+                                label: const Text(
+                                  'Tonton Trailer',
+                                  style: TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                onPressed: () {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      backgroundColor: AppColors.surfaceCard,
+                                      content: Text('Trailer: ${movie.title}'),
+                                    ),
+                                  );
+                                },
+                              ),
+                              const SizedBox(width: 10),
+                              OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(color: AppColors.accentYellow, width: 1),
+                                  backgroundColor: Colors.black.withValues(alpha: 0.5),
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                icon: const Icon(Icons.bookmark_add_outlined, color: AppColors.accentYellow, size: 16),
+                                label: const Text(
+                                  'Simpan',
+                                  style: TextStyle(
+                                    color: AppColors.accentYellow,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                onPressed: () {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      backgroundColor: AppColors.surfaceCard,
+                                      content: Text('Disimpan ke Watchlist: ${movie.title}'),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
-        );
-      },
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 10),
+        // Indicator Dots
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(bannerMovies.length, (index) {
+            final isActive = _carouselIndex == index;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              width: isActive ? 18 : 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: isActive ? AppColors.accentYellow : AppColors.surfaceElevated,
+                borderRadius: BorderRadius.circular(3),
+              ),
+            );
+          }),
+        ),
+      ],
     );
   }
 
@@ -521,6 +633,7 @@ class _BerandaPageState extends State<BerandaPage> {
     required String title,
     required List<MovieModel> movies,
     required bool isLoading,
+    VoidCallback? onSeeAll,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -539,12 +652,15 @@ class _BerandaPageState extends State<BerandaPage> {
                   fontWeight: FontWeight.w800,
                 ),
               ),
-              const Text(
-                'Lihat Semua >',
-                style: TextStyle(
-                  color: AppColors.accentYellow,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
+              GestureDetector(
+                onTap: onSeeAll,
+                child: const Text(
+                  'Lihat Semua >',
+                  style: TextStyle(
+                    color: AppColors.accentYellow,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ],

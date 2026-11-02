@@ -101,6 +101,24 @@ class TmdbService {
     }
   }
 
+  Future<List<MovieModel>> getMoviesByGenre({required int genreId, int page = 1}) async {
+    try {
+      final response = await _dio.get(
+        '/discover/movie',
+        queryParameters: {
+          'language': 'id-ID',
+          'with_genres': genreId,
+          'sort_by': 'popularity.desc',
+          'page': page,
+        },
+      );
+      final results = response.data['results'] as List<dynamic>? ?? [];
+      return results.map((m) => MovieModel.fromJson(m as Map<String, dynamic>)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
   Future<List<GenreModel>> getGenres() async {
     try {
       final response = await _dio.get(

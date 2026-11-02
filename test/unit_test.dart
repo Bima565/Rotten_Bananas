@@ -5,6 +5,7 @@ import 'package:flutter_application_1/core/password_hasher.dart';
 import 'package:flutter_application_1/data/models/genre_model.dart';
 import 'package:flutter_application_1/data/models/movie_model.dart';
 import 'package:flutter_application_1/data/models/user_model.dart';
+import 'package:flutter_application_1/page/category_movies_page.dart';
 
 void main() {
   group('BananaScoreHelper Tests', () {
@@ -30,6 +31,17 @@ void main() {
       expect(score.label, 'Rotten Bananas');
       expect(score.icon, '🤢');
       expect(score.color, AppColors.statusRotten);
+    });
+  });
+
+  group('CategoryType Tests', () {
+    test('CategoryType contains all 5 required modes', () {
+      expect(CategoryType.values.length, 5);
+      expect(CategoryType.values.contains(CategoryType.nowPlaying), isTrue);
+      expect(CategoryType.values.contains(CategoryType.popular), isTrue);
+      expect(CategoryType.values.contains(CategoryType.topRated), isTrue);
+      expect(CategoryType.values.contains(CategoryType.upcoming), isTrue);
+      expect(CategoryType.values.contains(CategoryType.genre), isTrue);
     });
   });
 
