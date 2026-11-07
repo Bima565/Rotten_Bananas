@@ -4,6 +4,16 @@ import 'package:google_sign_in/google_sign_in.dart';
 import '../local/session_manager.dart';
 import '../models/user_model.dart';
 
+class GoogleLoginResult {
+  final UserModel user;
+  final bool needsPasswordSetup;
+
+  GoogleLoginResult({
+    required this.user,
+    required this.needsPasswordSetup,
+  });
+}
+
 class AuthService {
   FirebaseAuth? get _firebaseAuth {
     try {
@@ -82,6 +92,7 @@ class AuthService {
       fullName: fullName.trim(),
       username: cleanUsername,
       email: cleanEmail,
+      passwordHash: password,
       favoriteGenres: favoriteGenreIds.join(','),
       createdAt: now,
       updatedAt: now,
@@ -195,7 +206,7 @@ class AuthService {
   }
 
   // --- GOOGLE SIGN IN (100% Firebase Authentication + Cloud Firestore) ---
-  Future<UserModel?> signInWithGoogle() async {
+  Future<GoogleLoginResult?> signInWithGoogle() async {
     final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
     if (googleUser == null) {
       return null;
@@ -220,29 +231,32 @@ class AuthService {
     final fullName = firebaseUser.displayName ?? googleUser.displayName ?? 'Google User';
     final username = email.split('@').first.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_');
 
-    // Cek apakah dokumen user sudah ada di Cloud Firestore
+    // Cek apakah akun ini sudah punya password sah di Cloud Firestore
+    bool needsPasswordSetup = true;
     UserModel? user;
+
     if (_firestore != null) {
-      final doc = await _firestore!.collection('users').doc(uid).get();
-      if (doc.exists && doc.data() != null) {
-        user = UserModel.fromFirestore(doc.data()!, uid);
-      } else {
-        final now = DateTime.now().toIso8601String();
-        user = UserModel(
-          uid: uid,
-          fullName: fullName,
-          username: username,
-          email: email,
-          bio: 'Pengguna Rotten Bananas via Google.',
-          avatarPath: firebaseUser.photoURL ?? googleUser.photoUrl,
-          favoriteGenres: '28,12,878',
-          createdAt: now,
-          updatedAt: now,
-        );
-        await _firestore!.collection('users').doc(uid).set(user.toFirestore());
-      }
+      try {
+        final doc = await _firestore!.collection('users').doc(uid).get();
+        if (doc.exists && doc.data() != null) {
+          final data = doc.data()!;
+          final hasPass = data['has_password'] == true &&
+              data['password_hash'] != null &&
+              (data['password_hash'] as String).isNotEmpty;
+          if (hasPass) {
+            needsPasswordSetup = false;
+            user = UserModel.fromFirestore(data, uid);
+            await SessionManager.saveSession(
+              userId: 1,
+              username: user.username,
+              email: user.email,
+            );
+          }
+        }
+      } catch (_) {}
     }
 
+    // PENTING: User baru jangan disimpan ke Firestore/Session dulu!
     user ??= UserModel(
       uid: uid,
       fullName: fullName,
@@ -250,18 +264,15 @@ class AuthService {
       email: email,
       bio: 'Pengguna Rotten Bananas via Google.',
       avatarPath: firebaseUser.photoURL ?? googleUser.photoUrl,
-      favoriteGenres: '28,12,878',
+      favoriteGenres: '',
       createdAt: DateTime.now().toIso8601String(),
       updatedAt: DateTime.now().toIso8601String(),
     );
 
-    await SessionManager.saveSession(
-      userId: 1,
-      username: user.username,
-      email: user.email,
+    return GoogleLoginResult(
+      user: user,
+      needsPasswordSetup: needsPasswordSetup,
     );
-
-    return user;
   }
 
   // --- AMBIL USER AKTIF DARI FIREBASE / LOCAL SESSION ---
@@ -354,6 +365,7 @@ class AuthService {
   Future<void> setAccountPassword(
     String newPassword, {
     String? currentPassword,
+    List<int>? favoriteGenreIds,
   }) async {
     final user = _firebaseAuth?.currentUser;
     if (user == null || user.email == null) {
@@ -396,13 +408,86 @@ class AuthService {
 
     if (_firestore != null) {
       try {
-        await _firestore!.collection('users').doc(user.uid).set({
-          'has_password': true,
-          'password_hash': newPassword,
-          'updated_at': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
+        final docRef = _firestore!.collection('users').doc(user.uid);
+        final doc = await docRef.get();
+        if (!doc.exists) {
+          final email = user.email ?? '';
+          final username = email.split('@').first.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_');
+          final now = DateTime.now().toIso8601String();
+          final newUser = UserModel(
+            uid: user.uid,
+            fullName: user.displayName ?? 'Google User',
+            username: username,
+            email: email,
+            passwordHash: newPassword,
+            bio: 'Pengguna Rotten Bananas via Google.',
+            avatarPath: user.photoURL,
+            favoriteGenres: favoriteGenreIds?.join(',') ?? '',
+            createdAt: now,
+            updatedAt: now,
+          );
+          await docRef.set(newUser.toFirestore());
+        } else {
+          final updateData = <String, dynamic>{
+            'has_password': true,
+            'password_hash': newPassword,
+            'updated_at': FieldValue.serverTimestamp(),
+          };
+          if (favoriteGenreIds != null && favoriteGenreIds.isNotEmpty) {
+            updateData['favorite_genres'] = favoriteGenreIds.join(',');
+          }
+          await docRef.set(
+            updateData,
+            SetOptions(merge: true),
+          );
+        }
       } catch (_) {}
     }
+
+    // Simpan session aktif pengguna
+    final email = user.email ?? '';
+    final username = email.split('@').first.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_');
+    await SessionManager.saveSession(
+      userId: 1,
+      username: username,
+      email: email,
+    );
+  }
+
+  /// Batalkan proses registrasi akun Google jika dibatalkan pada modal buat password
+  Future<void> cancelGoogleRegistration([String? uid]) async {
+    final user = _firebaseAuth?.currentUser;
+    final targetUid = uid ?? user?.uid;
+
+    if (targetUid != null && _firestore != null) {
+      try {
+        final doc = await _firestore!.collection('users').doc(targetUid).get();
+        if (doc.exists) {
+          final data = doc.data();
+          if (data == null ||
+              data['has_password'] != true ||
+              data['password_hash'] == null ||
+              (data['password_hash'] as String).isEmpty) {
+            await _firestore!.collection('users').doc(targetUid).delete();
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (user != null) {
+      try {
+        await user.delete();
+      } catch (_) {
+        await _firebaseAuth?.signOut();
+      }
+    } else {
+      await _firebaseAuth?.signOut();
+    }
+
+    try {
+      await _googleSignIn.signOut();
+    } catch (_) {}
+    await SessionManager.clearSession();
   }
 
   /// Kirim link reset password resmi Firebase ke email

@@ -54,6 +54,8 @@ class UserModel {
       'bio': bio,
       'avatar_path': avatarPath,
       'favorite_genres': favoriteGenres,
+      'password_hash': passwordHash,
+      'has_password': passwordHash.isNotEmpty,
       'created_at': createdAt,
       'updated_at': updatedAt,
     };

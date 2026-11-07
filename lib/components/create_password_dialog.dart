@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../data/models/genre_model.dart';
 import '../data/services/auth_service.dart';
 
 class CreatePasswordDialog extends StatefulWidget {
@@ -50,6 +51,21 @@ class _CreatePasswordDialogState extends State<CreatePasswordDialog> {
   bool _hasLowercase = false;
   bool _hasNumber = false;
   bool _hasSymbol = false;
+
+  final Set<int> _selectedGenreIds = {};
+
+  final List<GenreModel> _availableGenres = [
+    const GenreModel(id: 28, name: '🔥 Action'),
+    const GenreModel(id: 12, name: '🧭 Adventure'),
+    const GenreModel(id: 16, name: '🎨 Animation'),
+    const GenreModel(id: 35, name: '😂 Comedy'),
+    const GenreModel(id: 80, name: '🕵️ Crime'),
+    const GenreModel(id: 18, name: '🎭 Drama'),
+    const GenreModel(id: 27, name: '👻 Horror'),
+    const GenreModel(id: 878, name: '🚀 Sci-Fi'),
+    const GenreModel(id: 53, name: '⚡ Thriller'),
+    const GenreModel(id: 10749, name: '❤️ Romance'),
+  ];
 
   static const Color bgDark = Color(0xFF151720);
   static const Color inputBg = Color(0xFF181A22);
@@ -124,6 +140,13 @@ class _CreatePasswordDialogState extends State<CreatePasswordDialog> {
       return;
     }
 
+    if (!widget.isChangePassword && _selectedGenreIds.length < 2) {
+      setState(() {
+        _errorMessage = 'Pilih minimal 2 genre favorit Anda.';
+      });
+      return;
+    }
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -135,6 +158,8 @@ class _CreatePasswordDialogState extends State<CreatePasswordDialog> {
         currentPassword: widget.isChangePassword
             ? _currentPasswordController.text.trim()
             : null,
+        favoriteGenreIds:
+            !widget.isChangePassword ? _selectedGenreIds.toList() : null,
       );
       if (mounted) {
         Navigator.of(context).pop(true);
@@ -202,15 +227,21 @@ class _CreatePasswordDialogState extends State<CreatePasswordDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: bgDark,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 20),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: const BorderSide(color: inputBorder),
-      ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 420),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        Navigator.of(context).pop(false);
+      },
+      child: Dialog(
+        backgroundColor: bgDark,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: inputBorder),
+        ),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(22.0),
           child: Form(
@@ -483,6 +514,75 @@ class _CreatePasswordDialogState extends State<CreatePasswordDialog> {
                   ),
                 ),
 
+                if (!widget.isChangePassword) ...[
+                  const SizedBox(height: 18),
+                  Row(
+                    children: [
+                      const Text(
+                        'Pilih Genre Favorit Anda',
+                        style: TextStyle(
+                          color: textWhite,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: accentYellow.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          'Min. 2 (${_selectedGenreIds.length} dipilih)',
+                          style: const TextStyle(
+                            color: accentYellow,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _availableGenres.map((genre) {
+                      final isSelected = _selectedGenreIds.contains(genre.id);
+                      return FilterChip(
+                        selected: isSelected,
+                        label: Text(genre.name),
+                        labelStyle: TextStyle(
+                          color: isSelected ? Colors.black : textWhite,
+                          fontSize: 12,
+                          fontWeight:
+                              isSelected ? FontWeight.w800 : FontWeight.w500,
+                        ),
+                        backgroundColor: inputBg,
+                        selectedColor: accentYellow,
+                        checkmarkColor: Colors.black,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                          side: BorderSide(
+                            color: isSelected ? accentYellow : inputBorder,
+                          ),
+                        ),
+                        onSelected: (selected) {
+                          setState(() {
+                            if (selected) {
+                              _selectedGenreIds.add(genre.id);
+                            } else {
+                              _selectedGenreIds.remove(genre.id);
+                            }
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ),
+                ],
+
                 if (_errorMessage != null) ...[
                   const SizedBox(height: 12),
                   Text(
@@ -555,6 +655,6 @@ class _CreatePasswordDialogState extends State<CreatePasswordDialog> {
           ),
         ),
       ),
-    );
+    ));
   }
 }

@@ -126,20 +126,37 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> _handleGoogleLogin() async {
     setState(() => _isLoading = true);
     try {
-      final user = await _authService.signInWithGoogle();
-      if (user == null) {
+      final loginResult = await _authService.signInWithGoogle();
+      if (loginResult == null) {
         if (mounted) setState(() => _isLoading = false);
         return;
       }
 
-      // Cek apakah akun Google sudah memiliki password native
-      final hasPassword = await _authService.userHasPassword();
-      if (!hasPassword && mounted && user.email.isNotEmpty) {
-        await CreatePasswordDialog.show(
+      final user = loginResult.user;
+      final needsPassword = loginResult.needsPasswordSetup;
+
+      if (needsPassword && mounted && user.email.isNotEmpty) {
+        final success = await CreatePasswordDialog.show(
           context,
           email: user.email,
           isChangePassword: false,
         );
+
+        if (success != true) {
+          // Pengguna membatalkan pembuatan password (tekan Batal atau tombol back di HP)
+          await _authService.cancelGoogleRegistration(user.uid);
+          if (mounted) {
+            setState(() => _isLoading = false);
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                backgroundColor: Color(0xFFFF5252),
+                content: Text('Pendaftaran akun Google dibatalkan.'),
+              ),
+            );
+          }
+          return;
+        }
       }
 
       if (!mounted) return;

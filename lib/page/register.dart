@@ -24,6 +24,13 @@ class _RegisterPageState extends State<RegisterPage> {
   bool _obscureConfirmPassword = true;
   bool _isLoading = false;
 
+  // Status validasi password realtime
+  bool _hasMinLength = false;
+  bool _hasUppercase = false;
+  bool _hasLowercase = false;
+  bool _hasNumber = false;
+  bool _hasSymbol = false;
+
   final Set<int> _selectedGenreIds = {};
 
   final List<GenreModel> _availableGenres = [
@@ -40,7 +47,14 @@ class _RegisterPageState extends State<RegisterPage> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _passwordController.addListener(_validatePasswordRules);
+  }
+
+  @override
   void dispose() {
+    _passwordController.removeListener(_validatePasswordRules);
     _fullNameController.dispose();
     _usernameController.dispose();
     _emailController.dispose();
@@ -49,8 +63,34 @@ class _RegisterPageState extends State<RegisterPage> {
     super.dispose();
   }
 
+  void _validatePasswordRules() {
+    final text = _passwordController.text;
+    setState(() {
+      _hasMinLength = text.length >= 6;
+      _hasUppercase = RegExp(r'[A-Z]').hasMatch(text);
+      _hasLowercase = RegExp(r'[a-z]').hasMatch(text);
+      _hasNumber = RegExp(r'[0-9]').hasMatch(text);
+      _hasSymbol = RegExp(r'[!@#\$%^&*(),.?":{}|<>]').hasMatch(text);
+    });
+  }
+
+  bool get _isPasswordValid =>
+      _hasMinLength && _hasUppercase && _hasLowercase && _hasNumber;
+
   Future<void> _handleRegister() async {
     if (!_formKey.currentState!.validate()) return;
+
+    if (!_isPasswordValid) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: AppColors.statusRotten,
+          content: Text(
+            'Password harus memiliki huruf besar, kecil, angka, dan minimal 6 karakter.',
+          ),
+        ),
+      );
+      return;
+    }
 
     if (_selectedGenreIds.length < 2) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -281,6 +321,53 @@ class _RegisterPageState extends State<RegisterPage> {
                   },
                 ),
 
+                const SizedBox(height: 16),
+
+                // Rules checklist box
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceCard,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.inputBorder),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Ketentuan Password:',
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      _buildRuleItem(
+                        label: 'Minimal 6 karakter',
+                        isValid: _hasMinLength,
+                      ),
+                      _buildRuleItem(
+                        label: 'Mengandung huruf besar (A-Z)',
+                        isValid: _hasUppercase,
+                      ),
+                      _buildRuleItem(
+                        label: 'Mengandung huruf kecil (a-z)',
+                        isValid: _hasLowercase,
+                      ),
+                      _buildRuleItem(
+                        label: 'Mengandung angka (0-9)',
+                        isValid: _hasNumber,
+                      ),
+                      _buildRuleItem(
+                        label: 'Simbol khusus (@, #, \$, dll) - Opsional',
+                        isValid: _hasSymbol,
+                        isOptional: true,
+                      ),
+                    ],
+                  ),
+                ),
+
                 const SizedBox(height: 24),
 
                 // Genre Favorit Awal
@@ -414,6 +501,44 @@ class _RegisterPageState extends State<RegisterPage> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildRuleItem({
+    required String label,
+    required bool isValid,
+    bool isOptional = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6.0),
+      child: Row(
+        children: [
+          Icon(
+            isValid
+                ? Icons.check_circle_rounded
+                : (isOptional
+                    ? Icons.radio_button_unchecked
+                    : Icons.cancel_outlined),
+            size: 16,
+            color: isValid
+                ? AppColors.statusFresh
+                : (isOptional ? AppColors.textSecondary : const Color(0xFF6B7280)),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 12.5,
+                color: isValid
+                    ? Colors.white
+                    : (isOptional ? AppColors.textSecondary : const Color(0xFF9CA3AF)),
+                fontWeight: isValid ? FontWeight.w500 : FontWeight.w400,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
