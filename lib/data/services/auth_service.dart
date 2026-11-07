@@ -126,17 +126,41 @@ class AuthService {
     }
 
     // Login ke Firebase Auth dengan Email & Password
-    UserCredential credential;
+    UserCredential? credential;
     try {
       credential = await _firebaseAuth!.signInWithEmailAndPassword(
         email: targetEmail,
         password: password,
       );
     } on FirebaseAuthException catch (e) {
-      if (e.code == 'user-not-found' || e.code == 'invalid-credential') {
-        throw Exception('Akun belum terdaftar atau password salah. Silakan periksa kembali.');
-      } else if (e.code == 'wrong-password') {
-        throw Exception('Password salah. Silakan coba lagi.');
+      // Jika Firebase Auth gagal, periksa apakah ada password baru di Cloud Firestore (dari Reset Password)
+      final userQuery = await _firestore!
+          .collection('users')
+          .where('email', isEqualTo: targetEmail)
+          .limit(1)
+          .get();
+
+      if (userQuery.docs.isNotEmpty) {
+        final userData = userQuery.docs.first.data();
+        final storedPassword = userData['password_hash'] as String?;
+        if (storedPassword != null && storedPassword == password) {
+          final uid = userQuery.docs.first.id;
+          final user = UserModel.fromFirestore(userData, uid);
+          await SessionManager.saveSession(
+            userId: 1,
+            username: user.username,
+            email: user.email,
+          );
+          return user;
+        } else {
+          throw Exception('Password salah. Silakan periksa kembali kata sandi Anda.');
+        }
+      }
+
+      if (e.code == 'user-not-found') {
+        throw Exception('Akun belum terdaftar. Silakan daftar terlebih dahulu.');
+      } else if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
+        throw Exception('Password salah. Silakan periksa kembali kata sandi Anda.');
       } else {
         throw Exception(e.message ?? 'Login gagal.');
       }
@@ -240,29 +264,61 @@ class AuthService {
     return user;
   }
 
-  // --- AMBIL USER AKTIF DARI FIREBASE ---
+  // --- AMBIL USER AKTIF DARI FIREBASE / LOCAL SESSION ---
   Future<UserModel?> getCurrentUser() async {
     final currentFirebaseUser = _firebaseAuth?.currentUser;
-    if (currentFirebaseUser == null) return null;
+    if (currentFirebaseUser != null) {
+      if (_firestore != null) {
+        try {
+          final doc = await _firestore!.collection('users').doc(currentFirebaseUser.uid).get();
+          if (doc.exists && doc.data() != null) {
+            return UserModel.fromFirestore(doc.data()!, currentFirebaseUser.uid);
+          }
+        } catch (_) {}
+      }
 
-    if (_firestore != null) {
+      return UserModel(
+        uid: currentFirebaseUser.uid,
+        fullName: currentFirebaseUser.displayName ?? 'User',
+        username: (currentFirebaseUser.email ?? 'user').split('@').first,
+        email: currentFirebaseUser.email ?? '',
+        avatarPath: currentFirebaseUser.photoURL,
+        createdAt: DateTime.now().toIso8601String(),
+        updatedAt: DateTime.now().toIso8601String(),
+      );
+    }
+
+    // Jika Firebase currentUser null, periksa sesi aktif di SessionManager
+    final isLoggedIn = await SessionManager.isLoggedIn();
+    if (isLoggedIn && _firestore != null) {
       try {
-        final doc = await _firestore!.collection('users').doc(currentFirebaseUser.uid).get();
-        if (doc.exists && doc.data() != null) {
-          return UserModel.fromFirestore(doc.data()!, currentFirebaseUser.uid);
+        final email = await SessionManager.getActiveEmail();
+        final username = await SessionManager.getActiveUsername();
+        if (email != null && email.isNotEmpty) {
+          final query = await _firestore!
+              .collection('users')
+              .where('email', isEqualTo: email)
+              .limit(1)
+              .get();
+          if (query.docs.isNotEmpty) {
+            return UserModel.fromFirestore(
+                query.docs.first.data(), query.docs.first.id);
+          }
+        } else if (username != null && username.isNotEmpty) {
+          final query = await _firestore!
+              .collection('users')
+              .where('username', isEqualTo: username)
+              .limit(1)
+              .get();
+          if (query.docs.isNotEmpty) {
+            return UserModel.fromFirestore(
+                query.docs.first.data(), query.docs.first.id);
+          }
         }
       } catch (_) {}
     }
 
-    return UserModel(
-      uid: currentFirebaseUser.uid,
-      fullName: currentFirebaseUser.displayName ?? 'User',
-      username: (currentFirebaseUser.email ?? 'user').split('@').first,
-      email: currentFirebaseUser.email ?? '',
-      avatarPath: currentFirebaseUser.photoURL,
-      createdAt: DateTime.now().toIso8601String(),
-      updatedAt: DateTime.now().toIso8601String(),
-    );
+    return null;
   }
 
   Future<void> logout() async {
@@ -271,5 +327,87 @@ class AuthService {
       await _googleSignIn.signOut();
     } catch (_) {}
     await SessionManager.clearSession();
+  }
+
+  /// Cek apakah akun saat ini sudah memiliki password
+  Future<bool> userHasPassword() async {
+    final user = _firebaseAuth?.currentUser;
+    if (user == null) return false;
+
+    final hasPasswordProvider =
+        user.providerData.any((p) => p.providerId == 'password');
+    if (hasPasswordProvider) return true;
+
+    if (_firestore != null) {
+      try {
+        final doc =
+            await _firestore!.collection('users').doc(user.uid).get();
+        if (doc.exists && doc.data() != null) {
+          if (doc.data()!['has_password'] == true) return true;
+        }
+      } catch (_) {}
+    }
+    return false;
+  }
+
+  /// Pasang / perbarui password (link Google ke Native Email & Password)
+  Future<void> setAccountPassword(
+    String newPassword, {
+    String? currentPassword,
+  }) async {
+    final user = _firebaseAuth?.currentUser;
+    if (user == null || user.email == null) {
+      throw Exception('Pengguna tidak sedang login.');
+    }
+
+    if (currentPassword != null && currentPassword.isNotEmpty) {
+      final credential = EmailAuthProvider.credential(
+        email: user.email!,
+        password: currentPassword,
+      );
+      await user.reauthenticateWithCredential(credential);
+    }
+
+    final hasPasswordProvider =
+        user.providerData.any((p) => p.providerId == 'password');
+
+    if (hasPasswordProvider) {
+      await user.updatePassword(newPassword);
+    } else {
+      final credential = EmailAuthProvider.credential(
+        email: user.email!,
+        password: newPassword,
+      );
+      try {
+        await user.linkWithCredential(credential);
+      } on FirebaseAuthException catch (e) {
+        if (e.code == 'provider-already-linked' ||
+            e.code == 'credential-already-in-use') {
+          await user.updatePassword(newPassword);
+        } else {
+          rethrow;
+        }
+      }
+    }
+
+    try {
+      await user.reload();
+    } catch (_) {}
+
+    if (_firestore != null) {
+      try {
+        await _firestore!.collection('users').doc(user.uid).set({
+          'has_password': true,
+          'password_hash': newPassword,
+          'updated_at': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      } catch (_) {}
+    }
+  }
+
+  /// Kirim link reset password resmi Firebase ke email
+  Future<void> sendPasswordResetEmail(String email) async {
+    final cleanEmail = email.trim().toLowerCase();
+    await _firebaseAuth?.sendPasswordResetEmail(email: cleanEmail);
   }
 }

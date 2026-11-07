@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class UserModel {
   final String? uid;
   final int? id;
@@ -57,6 +59,14 @@ class UserModel {
     };
   }
 
+  static String _parseDateTime(dynamic val) {
+    if (val == null) return DateTime.now().toIso8601String();
+    if (val is Timestamp) return val.toDate().toIso8601String();
+    if (val is DateTime) return val.toIso8601String();
+    if (val is String) return val;
+    return val.toString();
+  }
+
   factory UserModel.fromMap(Map<String, dynamic> map, [String? docId]) {
     return UserModel(
       uid: docId ?? map['uid'] as String?,
@@ -68,8 +78,8 @@ class UserModel {
       bio: map['bio'] as String? ?? 'Pecinta film & pemburu trailer.',
       avatarPath: map['avatar_path'] as String?,
       favoriteGenres: map['favorite_genres'] as String? ?? '',
-      createdAt: map['created_at'] as String? ?? '',
-      updatedAt: map['updated_at'] as String? ?? '',
+      createdAt: _parseDateTime(map['created_at']),
+      updatedAt: _parseDateTime(map['updated_at']),
     );
   }
 

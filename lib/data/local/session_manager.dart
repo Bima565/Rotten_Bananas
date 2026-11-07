@@ -33,6 +33,11 @@ class SessionManager {
     return prefs.getString(_keyActiveUsername);
   }
 
+  static Future<String?> getActiveEmail() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyActiveEmail);
+  }
+
   static Future<void> clearSession() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_keyIsLoggedIn);

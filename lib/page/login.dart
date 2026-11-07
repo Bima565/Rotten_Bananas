@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../components/create_password_dialog.dart';
+import '../components/password_forget.dart';
 import '../core/google_logo.dart';
 import '../data/services/auth_service.dart';
 import 'beranda.dart';
@@ -67,8 +69,10 @@ class _LoginPageState extends State<LoginPage> {
 
       if (!mounted) return;
 
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
+          duration: const Duration(seconds: 3),
           backgroundColor: const Color(0xFF00E676),
           content: Text('Selamat datang kembali, ${user.fullName}!'),
         ),
@@ -83,8 +87,10 @@ class _LoginPageState extends State<LoginPage> {
       final errorMessage = e.toString().replaceAll('Exception: ', '');
       final isUnregistered = errorMessage.contains('belum terdaftar');
 
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
+          duration: const Duration(seconds: 4),
           backgroundColor: const Color(0xFFFF5252),
           content: Text(errorMessage),
           action: isUnregistered
@@ -92,6 +98,7 @@ class _LoginPageState extends State<LoginPage> {
                   label: 'DAFTAR',
                   textColor: Colors.white,
                   onPressed: () async {
+                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
                     final result = await Navigator.push<Map<String, String>>(
                       context,
                       MaterialPageRoute(builder: (_) => const RegisterPage()),
@@ -123,6 +130,16 @@ class _LoginPageState extends State<LoginPage> {
       if (user == null) {
         if (mounted) setState(() => _isLoading = false);
         return;
+      }
+
+      // Cek apakah akun Google sudah memiliki password native
+      final hasPassword = await _authService.userHasPassword();
+      if (!hasPassword && mounted && user.email.isNotEmpty) {
+        await CreatePasswordDialog.show(
+          context,
+          email: user.email,
+          isChangePassword: false,
+        );
       }
 
       if (!mounted) return;
@@ -373,7 +390,25 @@ class _LoginPageState extends State<LoginPage> {
               Align(
                 alignment: Alignment.centerRight,
                 child: GestureDetector(
-                  onTap: () {},
+                  onTap: () async {
+                    final messenger = ScaffoldMessenger.of(context);
+                    final email = await PasswordForgetDialog.show(
+                      context,
+                      initialEmail: _emailController.text.trim(),
+                    );
+                    if (email != null && mounted) {
+                      _emailController.text = email;
+                      _passwordController.clear();
+                      messenger.showSnackBar(
+                        const SnackBar(
+                          backgroundColor: Color(0xFF00E676),
+                          content: Text(
+                            'Password berhasil diperbarui! Silakan masuk dengan password baru.',
+                          ),
+                        ),
+                      );
+                    }
+                  },
                   child: const Text(
                     'Lupa Password?',
                     style: TextStyle(
