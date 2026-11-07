@@ -213,15 +213,29 @@ class _LoginPageState extends State<LoginPage> {
 
               const SizedBox(height: 24),
 
-              // Title Rotten Bananas
-              const Text(
-                'ROTTEN BANANAS',
-                style: TextStyle(
-                  color: primaryYellow,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0.5,
-                ),
+              // Title Rotten Bananas with App Logo
+              Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.asset(
+                      'assets/logo_app.png',
+                      width: 32,
+                      height: 32,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'ROTTEN BANANAS',
+                    style: TextStyle(
+                      color: primaryYellow,
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 4),
 

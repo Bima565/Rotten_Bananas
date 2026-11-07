@@ -137,8 +137,18 @@ class _BerandaPageState extends State<BerandaPage> {
         scrolledUnderElevation: 0,
         title: Row(
           children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: Image.asset(
+                'assets/logo_app.png',
+                width: 24,
+                height: 24,
+                fit: BoxFit.cover,
+              ),
+            ),
+            const SizedBox(width: 8),
             const Text(
-              '🍌 ROTTEN BANANAS',
+              'ROTTEN BANANAS',
               style: TextStyle(
                 color: AppColors.accentYellow,
                 fontSize: 16,
