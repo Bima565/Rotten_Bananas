@@ -129,6 +129,69 @@ class _BerandaPageState extends State<BerandaPage> {
 
   @override
   Widget build(BuildContext context) {
+    return PopScope(
+      canPop: _currentNavIndex == 0,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (_currentNavIndex != 0) {
+          setState(() => _currentNavIndex = 0);
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.backgroundPrimary,
+        body: IndexedStack(
+          index: _currentNavIndex,
+          children: [
+            _buildHomeContent(),
+            const ExploreFilterPage(),
+            const WatchlistPage(),
+          ],
+        ),
+        bottomNavigationBar: Container(
+          decoration: const BoxDecoration(
+            color: AppColors.surfaceCard,
+            border: Border(top: BorderSide(color: AppColors.inputBorder, width: 0.5)),
+          ),
+          child: BottomNavigationBar(
+            currentIndex: _currentNavIndex,
+            onTap: (index) {
+              if (index == 3) {
+                _handleLogout();
+              } else {
+                setState(() => _currentNavIndex = index);
+              }
+            },
+            backgroundColor: AppColors.surfaceCard,
+            selectedItemColor: AppColors.accentYellow,
+            unselectedItemColor: AppColors.textSecondary,
+            selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11),
+            unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 11),
+            type: BottomNavigationBarType.fixed,
+            items: const [
+              BottomNavigationBarItem(
+                icon: Icon(Icons.home_filled),
+                label: 'Beranda',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.explore_outlined),
+                label: 'Eksplor',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.bookmark_outline_rounded),
+                label: 'Watchlist',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.person_outline_rounded),
+                label: 'Profil',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHomeContent() {
     return Scaffold(
       backgroundColor: AppColors.backgroundPrimary,
       appBar: AppBar(
@@ -206,10 +269,7 @@ class _BerandaPageState extends State<BerandaPage> {
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: GestureDetector(
                   onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const ExploreFilterPage()),
-                    );
+                    setState(() => _currentNavIndex = 1);
                   },
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -402,56 +462,6 @@ class _BerandaPageState extends State<BerandaPage> {
               ),
             ],
           ),
-        ),
-      ),
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          color: AppColors.surfaceCard,
-          border: Border(top: BorderSide(color: AppColors.inputBorder, width: 0.5)),
-        ),
-        child: BottomNavigationBar(
-          currentIndex: _currentNavIndex,
-          onTap: (index) {
-            if (index == 1) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ExploreFilterPage()),
-              );
-            } else if (index == 2) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const WatchlistPage()),
-              );
-            } else if (index == 3) {
-              _handleLogout();
-            } else {
-              setState(() => _currentNavIndex = index);
-            }
-          },
-          backgroundColor: AppColors.surfaceCard,
-          selectedItemColor: AppColors.accentYellow,
-          unselectedItemColor: AppColors.textSecondary,
-          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11),
-          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 11),
-          type: BottomNavigationBarType.fixed,
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home_filled),
-              label: 'Beranda',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.explore_outlined),
-              label: 'Eksplor',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.bookmark_outline_rounded),
-              label: 'Watchlist',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline_rounded),
-              label: 'Profil',
-            ),
-          ],
         ),
       ),
     );
