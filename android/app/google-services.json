@@ -14,11 +14,11 @@
       },
       "oauth_client": [
         {
-          "client_id": "703192737059-on3gto061q7s8seneifbg6t6jvtivjhc.apps.googleusercontent.com",
+          "client_id": "703192737059-jo2089tvubbf49qjusl78v5ahahbai9e.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.example.flutter_application_1",
-            "certificate_hash": "cde28d006a3e14cf2973111f1c35d30dd9546a68"
+            "certificate_hash": "03cadfd0fbb6833a9e1d53a76b041f7a945ad4b7"
           }
         },
         {
@@ -51,11 +51,11 @@
       },
       "oauth_client": [
         {
-          "client_id": "703192737059-or0l2qi0kfaa1k9ipnid6jolv0ul59lo.apps.googleusercontent.com",
+          "client_id": "703192737059-tacf7cg9iuhgee6so02c8k54i1bd9qdk.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "rottenBananas.com",
-            "certificate_hash": "9a4adfdc8d4e8b70b93c0107fd88735858ffef68"
+            "certificate_hash": "03cadfd0fbb6833a9e1d53a76b041f7a945ad4b7"
           }
         },
         {
