@@ -1,10 +1,14 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
+import '../components/add_comment_bottom_sheet.dart';
+import '../components/comment_item_tile.dart';
 import '../core/app_colors.dart';
 import '../core/banana_score_helper.dart';
+import '../data/models/comment_model.dart';
 import '../data/models/movie_detail_model.dart';
 import '../data/models/movie_model.dart';
+import '../data/services/comment_service.dart';
 import '../data/services/tmdb_service.dart';
 import '../data/services/translation_service.dart';
 import '../data/services/watchlist_service.dart';
@@ -26,6 +30,7 @@ class _MovieDetailPageState extends State<MovieDetailPage> {
   final TmdbService _tmdbService = TmdbService();
   final WatchlistService _watchlistService = WatchlistService();
   final TranslationService _translationService = TranslationService();
+  final CommentService _commentService = CommentService();
 
   MovieDetailModel? _detail;
   bool _isLoading = true;
@@ -739,6 +744,11 @@ class _MovieDetailPageState extends State<MovieDetailPage> {
                     const SizedBox(height: 24),
                   ],
 
+                  // 💬 Ulasan & Diskusi Komunitas (Comments Section)
+                  _buildCommentsSection(),
+
+                  const SizedBox(height: 24),
+
                   // Tombol Simpan Watchlist Besar di Bawah
                   SizedBox(
                     width: double.infinity,
@@ -778,6 +788,214 @@ class _MovieDetailPageState extends State<MovieDetailPage> {
           ),
         ],
       ),
+    );
+  }
+
+  // --- Ulasan Komunitas (Comments Section) ---
+  Widget _buildCommentsSection() {
+    final currentUserId = _commentService.currentUserId;
+
+    return StreamBuilder<List<CommentModel>>(
+      stream: _commentService.getCommentsStream(widget.movie.id),
+      builder: (context, snapshot) {
+        final comments = snapshot.data ?? [];
+        final commentCount = comments.length;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header Section: Title, Counter & "Tulis Ulasan" button
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Text(
+                      '💬 Ulasan Komunitas',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    if (snapshot.hasData) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceElevated,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '$commentCount',
+                          style: const TextStyle(
+                            color: AppColors.accentYellow,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                TextButton.icon(
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.accentYellow,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  icon: const Icon(Icons.rate_review_outlined, size: 16),
+                  label: const Text(
+                    'Tulis Ulasan',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 12.5,
+                    ),
+                  ),
+                  onPressed: () async {
+                    final messenger = ScaffoldMessenger.of(context);
+                    final added = await AddCommentBottomSheet.show(
+                      context,
+                      movieId: widget.movie.id,
+                      movieTitle: _detail?.title ?? widget.movie.title,
+                    );
+                    if (added == true && mounted) {
+                      messenger.showSnackBar(
+                        const SnackBar(
+                          backgroundColor: AppColors.statusFresh,
+                          content: Text('Ulasan Anda berhasil dipublikasikan! 🍌'),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    }
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Content: Loading / Empty State / List of comments
+            if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(AppColors.accentYellow),
+                  ),
+                ),
+              )
+            else if (comments.isEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceCard,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppColors.inputBorder, width: 0.8),
+                ),
+                child: Column(
+                  children: [
+                    const Text('🍌', style: TextStyle(fontSize: 28)),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Belum ada ulasan untuk film ini',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Jadilah yang pertama menilai tingkat kematangan film ini!',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.accentYellow,
+                        foregroundColor: Colors.black,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      icon: const Icon(Icons.add_comment_rounded, size: 16),
+                      label: const Text(
+                        'Beri Penilaian Pertama',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+                      ),
+                      onPressed: () async {
+                        final messenger = ScaffoldMessenger.of(context);
+                        final added = await AddCommentBottomSheet.show(
+                          context,
+                          movieId: widget.movie.id,
+                          movieTitle: _detail?.title ?? widget.movie.title,
+                        );
+                        if (added == true && mounted) {
+                          messenger.showSnackBar(
+                            const SnackBar(
+                              backgroundColor: AppColors.statusFresh,
+                              content: Text('Ulasan Anda berhasil dipublikasikan! 🍌'),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              )
+            else
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                padding: EdgeInsets.zero,
+                itemCount: comments.length,
+                itemBuilder: (ctx, index) {
+                  final comment = comments[index];
+                  final isOwner = currentUserId != null && comment.userId == currentUserId;
+
+                  return CommentItemTile(
+                    comment: comment,
+                    isOwner: isOwner,
+                    onDelete: () async {
+                      final messenger = ScaffoldMessenger.of(context);
+                      try {
+                        await _commentService.deleteComment(
+                          movieId: widget.movie.id,
+                          commentId: comment.id,
+                        );
+                        if (mounted) {
+                          messenger.showSnackBar(
+                            const SnackBar(
+                              backgroundColor: AppColors.surfaceCard,
+                              content: Text('Ulasan berhasil dihapus.'),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          messenger.showSnackBar(
+                            SnackBar(
+                              backgroundColor: AppColors.statusRotten,
+                              content: Text(e.toString().replaceAll('Exception: ', '')),
+                            ),
+                          );
+                        }
+                      }
+                    },
+                  );
+                },
+              ),
+          ],
+        );
+      },
     );
   }
 }

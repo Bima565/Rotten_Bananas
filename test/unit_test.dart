@@ -8,6 +8,7 @@ import 'package:flutter_application_1/core/app_colors.dart';
 import 'package:flutter_application_1/core/banana_score_helper.dart';
 import 'package:flutter_application_1/core/debouncer.dart';
 import 'package:flutter_application_1/core/password_hasher.dart';
+import 'package:flutter_application_1/data/models/comment_model.dart';
 import 'package:flutter_application_1/data/models/genre_model.dart';
 import 'package:flutter_application_1/data/models/movie_detail_model.dart';
 import 'package:flutter_application_1/data/models/movie_model.dart';
@@ -329,6 +330,123 @@ void main() {
       // Setelah reset cooldown, status limit mati
       service.resetCooldown();
       expect(service.isRateLimited, isFalse);
+    });
+  });
+
+  group('CommentModel Tests', () {
+    test('CommentModel verdict properties return correct labels, icons, and colors', () {
+      final goldenComment = CommentModel(
+        id: 'c1',
+        movieId: 101,
+        userId: 'u1',
+        userName: 'Bayu',
+        username: 'bayuk',
+        content: 'Film yang luar biasa!',
+        bananaVerdict: 'golden_ripe',
+        createdAt: DateTime.now(),
+      );
+      expect(goldenComment.verdictLabel, 'Golden Ripe');
+      expect(goldenComment.verdictIcon, '🍌');
+      expect(goldenComment.verdictColor, AppColors.statusFresh);
+
+      final bruisedComment = CommentModel(
+        id: 'c2',
+        movieId: 101,
+        userId: 'u2',
+        userName: 'Ahmad',
+        username: 'ahmadk',
+        content: 'Bagus tapi agak membosankan di tengah.',
+        bananaVerdict: 'bruised',
+        createdAt: DateTime.now(),
+      );
+      expect(bruisedComment.verdictLabel, 'Bruised');
+      expect(bruisedComment.verdictIcon, '🍌');
+      expect(bruisedComment.verdictColor, AppColors.statusBruised);
+
+      final rottenComment = CommentModel(
+        id: 'c3',
+        movieId: 101,
+        userId: 'u3',
+        userName: 'Citra',
+        username: 'citra',
+        content: 'Jelek banget ceritanya.',
+        bananaVerdict: 'rotten',
+        createdAt: DateTime.now(),
+      );
+      expect(rottenComment.verdictLabel, 'Rotten Bananas');
+      expect(rottenComment.verdictIcon, '🤢');
+      expect(rottenComment.verdictColor, AppColors.statusRotten);
+    });
+
+    test('CommentModel fromMap and toMap serialize correctly', () {
+      final now = DateTime.now();
+      final map = {
+        'movie_id': 550,
+        'user_id': 'user_123',
+        'user_name': 'Bima Prawira',
+        'username': 'bima',
+        'user_avatar': 'https://example.com/avatar.jpg',
+        'content': 'Sangat seru dan penuh plot twist.',
+        'banana_verdict': 'golden_ripe',
+        'created_at': now.toIso8601String(),
+        'updated_at': now.toIso8601String(),
+      };
+
+      final comment = CommentModel.fromMap(map, 'doc_abc');
+      expect(comment.id, 'doc_abc');
+      expect(comment.movieId, 550);
+      expect(comment.userId, 'user_123');
+      expect(comment.userName, 'Bima Prawira');
+      expect(comment.username, 'bima');
+      expect(comment.userAvatar, 'https://example.com/avatar.jpg');
+      expect(comment.content, 'Sangat seru dan penuh plot twist.');
+      expect(comment.bananaVerdict, 'golden_ripe');
+
+      final serialized = comment.toMap();
+      expect(serialized['id'], 'doc_abc');
+      expect(serialized['movie_id'], 550);
+      expect(serialized['user_id'], 'user_123');
+      expect(serialized['content'], 'Sangat seru dan penuh plot twist.');
+    });
+
+    test('CommentModel timeAgo calculates relative time correctly', () {
+      final now = DateTime.now();
+
+      final justNow = CommentModel(
+        id: 't1',
+        movieId: 1,
+        userId: 'u1',
+        userName: 'User',
+        username: 'user',
+        content: 'Test',
+        bananaVerdict: 'golden_ripe',
+        createdAt: now.subtract(const Duration(seconds: 15)),
+      );
+      expect(justNow.timeAgo, 'Baru saja');
+
+      final minsAgo = CommentModel(
+        id: 't2',
+        movieId: 1,
+        userId: 'u1',
+        userName: 'User',
+        username: 'user',
+        content: 'Test',
+        bananaVerdict: 'golden_ripe',
+        createdAt: now.subtract(const Duration(minutes: 5)),
+      );
+      expect(minsAgo.timeAgo, '5m lalu');
+
+      final hoursAgo = CommentModel(
+        id: 't3',
+        movieId: 1,
+        userId: 'u1',
+        userName: 'User',
+        username: 'user',
+        content: 'Test',
+        bananaVerdict: 'golden_ripe',
+        createdAt: now.subtract(const Duration(hours: 3)),
+      );
+      expect(hoursAgo.timeAgo, '3j lalu');
     });
   });
 }
