@@ -6,6 +6,7 @@ import '../core/banana_score_helper.dart';
 import '../data/models/movie_detail_model.dart';
 import '../data/models/movie_model.dart';
 import '../data/services/tmdb_service.dart';
+import '../data/services/translation_service.dart';
 import '../data/services/watchlist_service.dart';
 import 'explore_filter_page.dart';
 
@@ -24,10 +25,17 @@ class MovieDetailPage extends StatefulWidget {
 class _MovieDetailPageState extends State<MovieDetailPage> {
   final TmdbService _tmdbService = TmdbService();
   final WatchlistService _watchlistService = WatchlistService();
+  final TranslationService _translationService = TranslationService();
 
   MovieDetailModel? _detail;
   bool _isLoading = true;
   bool _isInWatchlist = false;
+
+  String _displayOverview = '';
+  bool _isTranslating = false;
+  bool _isTranslatedByAI = false;
+  bool _isRateLimitedFallback = false;
+  String? _translationError;
 
   YoutubePlayerController? _youtubeController;
   bool _isPlayingTrailer = false;
@@ -36,6 +44,7 @@ class _MovieDetailPageState extends State<MovieDetailPage> {
   @override
   void initState() {
     super.initState();
+    _displayOverview = widget.movie.overview;
     _loadDetailAndWatchlistStatus();
   }
 
@@ -53,9 +62,14 @@ class _MovieDetailPageState extends State<MovieDetailPage> {
 
     if (!mounted) return;
 
+    final initialOverview = detail?.overview.isNotEmpty == true
+        ? detail!.overview
+        : widget.movie.overview;
+
     setState(() {
       _isInWatchlist = isSaved;
       _detail = detail;
+      _displayOverview = initialOverview;
       _isLoading = false;
 
       final mainTrailer = detail?.mainTrailer;
@@ -63,6 +77,34 @@ class _MovieDetailPageState extends State<MovieDetailPage> {
         _activeVideoKey = mainTrailer.key;
         _initYoutubeController(mainTrailer.key);
       }
+    });
+
+    // Jika sinopsis berasal dari bahasa Inggris fallback, terjemahkan via Gemini
+    if (detail != null && detail.isFromEnglishFallback && detail.overview.trim().isNotEmpty) {
+      _translateSynopsis(detail.id, detail.overview);
+    }
+  }
+
+  Future<void> _translateSynopsis(int movieId, String englishText) async {
+    setState(() {
+      _isTranslating = true;
+      _isRateLimitedFallback = false;
+      _translationError = null;
+    });
+
+    final result = await _translationService.translateMovieOverview(
+      movieId: movieId,
+      englishText: englishText,
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      _isTranslating = false;
+      _displayOverview = result.text;
+      _isTranslatedByAI = result.isTranslated;
+      _isRateLimitedFallback = result.isRateLimited;
+      _translationError = result.status == TranslationStatus.error ? result.errorMessage : null;
     });
   }
 
@@ -385,19 +427,137 @@ class _MovieDetailPageState extends State<MovieDetailPage> {
                     const SizedBox(height: 20),
                   ],
 
-                  // Sinopsis
-                  const Text(
-                    'Sinopsis',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                    ),
+                  // Sinopsis & Status Terjemahan
+                  Row(
+                    children: [
+                      const Text(
+                        'Sinopsis',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      if (_isTranslating) ...[
+                        const SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.accentYellow,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        const Text(
+                          'Menerjemahkan...',
+                          style: TextStyle(
+                            color: AppColors.accentYellow,
+                            fontSize: 11,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ] else if (_isTranslatedByAI) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: AppColors.accentYellow.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: AppColors.accentYellow.withValues(alpha: 0.4),
+                              width: 0.8,
+                            ),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.translate_rounded,
+                                size: 11,
+                                color: AppColors.accentYellow,
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                'Terjemahan Indonesia',
+                                style: TextStyle(
+                                  color: AppColors.accentYellow,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ] else if (_isRateLimitedFallback) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceElevated,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text(
+                            'Teks Asli (EN)',
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        GestureDetector(
+                          onTap: () {
+                            if (_detail != null) {
+                              _translationService.resetCooldown();
+                              _translateSynopsis(_detail!.id, _detail!.overview);
+                            }
+                          },
+                          child: const Icon(
+                            Icons.refresh_rounded,
+                            size: 14,
+                            color: AppColors.accentYellow,
+                          ),
+                        ),
+                      ] else if (_translationError != null) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: Colors.red.withValues(alpha: 0.4),
+                              width: 0.8,
+                            ),
+                          ),
+                          child: const Text(
+                            'Teks Asli (Tap Terjemahkan)',
+                            style: TextStyle(
+                              color: Colors.redAccent,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        GestureDetector(
+                          onTap: () {
+                            if (_detail != null) {
+                              _translateSynopsis(_detail!.id, _detail!.overview);
+                            }
+                          },
+                          child: const Icon(
+                            Icons.refresh_rounded,
+                            size: 14,
+                            color: AppColors.accentYellow,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    (_detail?.overview.isNotEmpty == true ? _detail!.overview : widget.movie.overview).isNotEmpty
-                        ? (_detail?.overview.isNotEmpty == true ? _detail!.overview : widget.movie.overview)
+                    _displayOverview.isNotEmpty
+                        ? _displayOverview
                         : 'Belum ada sinopsis untuk film ini.',
                     style: const TextStyle(
                       color: AppColors.textSecondary,

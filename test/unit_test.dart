@@ -13,7 +13,9 @@ import 'package:flutter_application_1/data/models/movie_detail_model.dart';
 import 'package:flutter_application_1/data/models/movie_model.dart';
 import 'package:flutter_application_1/data/models/user_model.dart';
 import 'package:flutter_application_1/data/services/tmdb_service.dart';
+import 'package:flutter_application_1/data/services/translation_service.dart';
 import 'package:flutter_application_1/page/category_movies_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   group('BananaScoreHelper Tests', () {
@@ -244,6 +246,116 @@ void main() {
       expect(movies.first.title, 'Env Movie');
     });
   });
+
+  group('TranslationService Tests', () {
+    setUp(() {
+      SharedPreferences.setMockInitialValues({});
+    });
+
+    test('returns cached translation without sending HTTP request', () async {
+      SharedPreferences.setMockInitialValues({
+        'gemini_trans_99': 'Sinopsis Bahasa Indonesia tersimpan di cache.',
+      });
+
+      final adapter = _FakeHttpClientAdapter();
+      final dio = Dio()..httpClientAdapter = adapter;
+      final service = TranslationService(dio: dio);
+
+      final result = await service.translateMovieOverview(
+        movieId: 99,
+        englishText: 'Original English overview',
+      );
+
+      expect(result.status, TranslationStatus.cached);
+      expect(result.text, 'Sinopsis Bahasa Indonesia tersimpan di cache.');
+      expect(result.isTranslated, isTrue);
+      expect(adapter.fetchCount, 0);
+    });
+
+    test('successfully translates with Gemini and caches the result', () async {
+      dotenv.testLoad(fileInput: 'GEMINI_API_KEY=test_key');
+      final fakeResponse = jsonEncode({
+        'candidates': [
+          {
+            'content': {
+              'parts': [
+                {'text': 'Ini adalah sinopsis film hasil terjemahan Gemini.'}
+              ]
+            }
+          }
+        ]
+      });
+
+      final adapter = _FakeHttpClientAdapter(responseBody: fakeResponse);
+      final dio = Dio()..httpClientAdapter = adapter;
+      final service = TranslationService(dio: dio);
+
+      final result = await service.translateMovieOverview(
+        movieId: 200,
+        englishText: 'This is the movie synopsis in English.',
+      );
+
+      expect(result.status, TranslationStatus.success);
+      expect(result.text, 'Ini adalah sinopsis film hasil terjemahan Gemini.');
+      expect(result.isTranslated, isTrue);
+      expect(adapter.fetchCount, greaterThanOrEqualTo(1));
+
+      // Pastikan hasil tersimpan di SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('gemini_trans_200'), 'Ini adalah sinopsis film hasil terjemahan Gemini.');
+    });
+
+    test('handles 429 rate limit: falls back to English, activates cooldown, and does not cache', () async {
+      dotenv.testLoad(fileInput: 'GEMINI_API_KEY=test_key');
+      final adapter = _ErrorHttpClientAdapter(statusCode: 429, message: 'Resource exhausted');
+      final dio = Dio()..httpClientAdapter = adapter;
+      final service = TranslationService(dio: dio);
+
+      final result = await service.translateMovieOverview(
+        movieId: 300,
+        englishText: 'English overview under rate limit',
+      );
+
+      expect(result.status, TranslationStatus.rateLimited);
+      expect(result.text, 'English overview under rate limit');
+      expect(result.isTranslated, isFalse);
+      expect(service.isRateLimited, isTrue);
+      expect(service.remainingCooldownSeconds, greaterThan(0));
+
+      // Pastikan teks Bahasa Inggris TIDAK disimpan ke cache sebagai terjemahan
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('gemini_trans_300'), isNull);
+
+      // Setelah reset cooldown, status limit mati
+      service.resetCooldown();
+      expect(service.isRateLimited, isFalse);
+    });
+  });
+}
+
+class _ErrorHttpClientAdapter implements HttpClientAdapter {
+  final int statusCode;
+  final String message;
+
+  _ErrorHttpClientAdapter({required this.statusCode, required this.message});
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    return ResponseBody.fromString(
+      jsonEncode({'error': {'code': statusCode, 'message': message}}),
+      statusCode,
+      headers: {
+        Headers.contentTypeHeader: [Headers.jsonContentType],
+      },
+    );
+  }
+
+  @override
+  void close({bool force = false}) {}
 }
 
 class _FakeHttpClientAdapter implements HttpClientAdapter {

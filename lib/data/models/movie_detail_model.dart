@@ -74,6 +74,7 @@ class MovieDetailModel {
   final List<GenreModel> genres;
   final List<VideoModel> videos;
   final List<CastModel> cast;
+  final bool isFromEnglishFallback;
 
   const MovieDetailModel({
     required this.id,
@@ -90,7 +91,44 @@ class MovieDetailModel {
     required this.genres,
     required this.videos,
     required this.cast,
+    this.isFromEnglishFallback = false,
   });
+
+  MovieDetailModel copyWith({
+    int? id,
+    String? title,
+    String? overview,
+    String? posterPath,
+    String? backdropPath,
+    double? voteAverage,
+    int? voteCount,
+    String? releaseDate,
+    int? runtime,
+    String? status,
+    String? tagline,
+    List<GenreModel>? genres,
+    List<VideoModel>? videos,
+    List<CastModel>? cast,
+    bool? isFromEnglishFallback,
+  }) {
+    return MovieDetailModel(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      overview: overview ?? this.overview,
+      posterPath: posterPath ?? this.posterPath,
+      backdropPath: backdropPath ?? this.backdropPath,
+      voteAverage: voteAverage ?? this.voteAverage,
+      voteCount: voteCount ?? this.voteCount,
+      releaseDate: releaseDate ?? this.releaseDate,
+      runtime: runtime ?? this.runtime,
+      status: status ?? this.status,
+      tagline: tagline ?? this.tagline,
+      genres: genres ?? this.genres,
+      videos: videos ?? this.videos,
+      cast: cast ?? this.cast,
+      isFromEnglishFallback: isFromEnglishFallback ?? this.isFromEnglishFallback,
+    );
+  }
 
   String get posterUrl => posterPath != null && posterPath!.isNotEmpty
       ? 'https://image.tmdb.org/t/p/w500$posterPath'

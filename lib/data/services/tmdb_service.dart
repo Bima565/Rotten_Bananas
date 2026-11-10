@@ -172,17 +172,40 @@ class TmdbService {
           'append_to_response': 'videos,credits',
         },
       );
-      return MovieDetailModel.fromJson(response.data as Map<String, dynamic>);
+      final detail = MovieDetailModel.fromJson(response.data as Map<String, dynamic>);
+
+      // Jika sinopsis Bahasa Indonesia kosong, ambil sinopsis Bahasa Inggris (en-US) sebagai fallback
+      if (detail.overview.trim().isEmpty) {
+        try {
+          final enResponse = await _dio.get(
+            '/movie/$movieId',
+            queryParameters: {
+              'language': 'en-US',
+            },
+          );
+          final enOverview = (enResponse.data['overview'] as String? ?? '').trim();
+          if (enOverview.isNotEmpty) {
+            return detail.copyWith(
+              overview: enOverview,
+              isFromEnglishFallback: true,
+            );
+          }
+        } catch (_) {}
+      }
+
+      return detail;
     } catch (_) {
-      // Fallback tanpa language jika id-ID tidak lengkap
+      // Fallback mengambil data en-US jika request id-ID gagal total
       try {
         final fallbackResponse = await _dio.get(
           '/movie/$movieId',
           queryParameters: {
+            'language': 'en-US',
             'append_to_response': 'videos,credits',
           },
         );
-        return MovieDetailModel.fromJson(fallbackResponse.data as Map<String, dynamic>);
+        final detail = MovieDetailModel.fromJson(fallbackResponse.data as Map<String, dynamic>);
+        return detail.copyWith(isFromEnglishFallback: true);
       } catch (_) {
         return null;
       }
