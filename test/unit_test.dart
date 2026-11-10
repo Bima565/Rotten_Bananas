@@ -1,3 +1,8 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:dio/dio.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_application_1/core/app_colors.dart';
 import 'package:flutter_application_1/core/banana_score_helper.dart';
@@ -7,6 +12,7 @@ import 'package:flutter_application_1/data/models/genre_model.dart';
 import 'package:flutter_application_1/data/models/movie_detail_model.dart';
 import 'package:flutter_application_1/data/models/movie_model.dart';
 import 'package:flutter_application_1/data/models/user_model.dart';
+import 'package:flutter_application_1/data/services/tmdb_service.dart';
 import 'package:flutter_application_1/page/category_movies_page.dart';
 
 void main() {
@@ -183,4 +189,87 @@ void main() {
       debouncer.dispose();
     });
   });
+
+  group('TmdbService Env Auth Tests', () {
+    test('does not crash or send request when dotenv is not initialized', () async {
+      final adapter = _FakeHttpClientAdapter();
+      final dio = Dio()..httpClientAdapter = adapter;
+      final service = TmdbService(dio: dio);
+
+      final movies = await service.getTrendingMovies();
+      final genres = await service.getGenres();
+
+      expect(movies, isEmpty);
+      expect(genres, GenreModel.defaultGenres);
+      expect(adapter.fetchCount, 0);
+    });
+
+    test('does not send request when tmdb_auth is missing in env', () async {
+      dotenv.testLoad(fileInput: '');
+      final adapter = _FakeHttpClientAdapter();
+      final dio = Dio()..httpClientAdapter = adapter;
+      final service = TmdbService(dio: dio);
+
+      final movies = await service.getTrendingMovies();
+
+      expect(movies, isEmpty);
+      expect(adapter.fetchCount, 0);
+    });
+
+    test('uses Bearer token from dotenv tmdb_auth without hardcoded fallback', () async {
+      dotenv.testLoad(fileInput: 'tmdb_auth=test_env_token');
+      final adapter = _FakeHttpClientAdapter(
+        responseBody: jsonEncode({
+          'results': [
+            {
+              'id': 42,
+              'title': 'Env Movie',
+              'overview': 'Loaded using env token.',
+              'vote_average': 7.8,
+              'vote_count': 100,
+              'release_date': '2026-01-01',
+              'genre_ids': [28],
+            }
+          ]
+        }),
+      );
+      final dio = Dio()..httpClientAdapter = adapter;
+      final service = TmdbService(dio: dio);
+
+      final movies = await service.getTrendingMovies();
+
+      expect(adapter.fetchCount, 1);
+      expect(adapter.lastOptions?.headers['Authorization'], 'Bearer test_env_token');
+      expect(movies.length, 1);
+      expect(movies.first.title, 'Env Movie');
+    });
+  });
+}
+
+class _FakeHttpClientAdapter implements HttpClientAdapter {
+  final String responseBody;
+  int fetchCount = 0;
+  RequestOptions? lastOptions;
+
+  _FakeHttpClientAdapter({this.responseBody = '{"results": []}'});
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    fetchCount++;
+    lastOptions = options;
+    return ResponseBody.fromString(
+      responseBody,
+      200,
+      headers: {
+        Headers.contentTypeHeader: [Headers.jsonContentType],
+      },
+    );
+  }
+
+  @override
+  void close({bool force = false}) {}
 }

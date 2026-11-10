@@ -5,22 +5,44 @@ import '../models/movie_detail_model.dart';
 import '../models/movie_model.dart';
 
 class TmdbService {
-  final Dio _dio = Dio();
+  final Dio _dio;
   final String _baseUrl = 'https://api.themoviedb.org/3';
 
-  TmdbService() {
-    final token = dotenv.env['tmdb_auth'] ??
-        'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI4YTI3ZTg3NTEzMWZmYWE1ODY0MjMwNzliNTI1YWQyNyIsIm5iZiI6MTc5MjY0MzEyNC44MzgsInN1YiI6IjZhZDk5MDM0ZjkwYzY4NGJjNzE0MjYyMSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.8hZV3SRDOV8dBEl7VXCehNJEVrhCueanANHMm8SnUQk';
-
+  TmdbService({Dio? dio}) : _dio = dio ?? Dio() {
     _dio.options = BaseOptions(
       baseUrl: _baseUrl,
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 10),
       headers: {
-        'Authorization': 'Bearer $token',
         'Accept': 'application/json',
       },
     );
+
+    _dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          final token = _getAuthToken();
+          if (token.isEmpty) {
+            handler.reject(
+              DioException(
+                requestOptions: options,
+                type: DioExceptionType.cancel,
+                message: 'TMDB auth token (tmdb_auth) belum disetel di .env',
+              ),
+            );
+            return;
+          }
+          options.headers['Authorization'] = 'Bearer $token';
+          handler.next(options);
+        },
+      ),
+    );
+  }
+
+  /// Membaca token autentikasi TMDb dari environment (.env) tanpa hardcoded fallback.
+  String _getAuthToken() {
+    if (!dotenv.isInitialized) return '';
+    return (dotenv.env['tmdb_auth'] ?? '').trim();
   }
 
   Future<List<MovieModel>> getTrendingMovies() async {
