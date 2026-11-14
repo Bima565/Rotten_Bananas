@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../core/app_colors.dart';
+import '../data/models/comment_model.dart';
 import '../data/services/comment_service.dart';
+import 'banana_status_icon.dart';
 
 class AddCommentBottomSheet extends StatefulWidget {
   final int movieId;
@@ -37,9 +39,35 @@ class _AddCommentBottomSheetState extends State<AddCommentBottomSheet> {
   final TextEditingController _contentController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
-  String _selectedVerdict = 'golden_ripe'; // 'golden_ripe', 'bruised', 'rotten'
+  double _rating = 5.0; // Skala 1.0 - 5.0 (Rotten Tomatoes audience rating)
   bool _isSubmitting = false;
   String? _errorMessage;
+
+  String get _currentVerdict => CommentModel.verdictFromRating(_rating);
+
+  Color get _currentVerdictColor {
+    if (_rating >= 4.0) {
+      return AppColors.statusFresh;
+    } else if (_rating >= 3.0) {
+      return AppColors.statusBruised;
+    } else {
+      return AppColors.statusRotten;
+    }
+  }
+
+  String get _currentVerdictLabel {
+    if (_rating >= 5.0) {
+      return 'Top Markotop';
+    } else if (_rating >= 4.0) {
+      return 'Cakep';
+    } else if (_rating >= 3.0) {
+      return 'Medioker';
+    } else if (_rating >= 2.0) {
+      return 'Kureng';
+    } else {
+      return 'Ampas';
+    }
+  }
 
   @override
   void dispose() {
@@ -66,7 +94,8 @@ class _AddCommentBottomSheetState extends State<AddCommentBottomSheet> {
       await _commentService.addComment(
         movieId: widget.movieId,
         content: content,
-        bananaVerdict: _selectedVerdict,
+        rating: _rating,
+        bananaVerdict: _currentVerdict,
       );
 
       if (mounted) {
@@ -80,55 +109,6 @@ class _AddCommentBottomSheetState extends State<AddCommentBottomSheet> {
         });
       }
     }
-  }
-
-  Widget _buildVerdictOption({
-    required String verdictKey,
-    required String label,
-    required String icon,
-    required Color color,
-  }) {
-    final isSelected = _selectedVerdict == verdictKey;
-
-    return Expanded(
-      child: GestureDetector(
-        onTap: () {
-          setState(() {
-            _selectedVerdict = verdictKey;
-          });
-        },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
-          decoration: BoxDecoration(
-            color: isSelected ? color.withValues(alpha: 0.18) : AppColors.surfaceElevated,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isSelected ? color : AppColors.inputBorder,
-              width: isSelected ? 1.5 : 1.0,
-            ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(icon, style: const TextStyle(fontSize: 22)),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: isSelected ? color : AppColors.textSecondary,
-                  fontSize: 11,
-                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
   @override
@@ -215,40 +195,110 @@ class _AddCommentBottomSheetState extends State<AddCommentBottomSheet> {
 
               const SizedBox(height: 18),
 
-              // Penilaian Pisang (Banana Verdict Selector)
-              const Text(
-                'Tingkat Kematangan Film (Banana Verdict):',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                ),
+              // Rating Bintang (Rotten Tomatoes Audience Style)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Rating Film (Bintang):',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceElevated,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppColors.inputBorder),
+                    ),
+                    child: Text(
+                      '${_rating.toInt()} / 5 Bintang',
+                      style: const TextStyle(
+                        color: AppColors.accentYellow,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 10),
 
-              Row(
-                children: [
-                  _buildVerdictOption(
-                    verdictKey: 'golden_ripe',
-                    label: 'Golden Ripe',
-                    icon: '🍌',
-                    color: AppColors.statusFresh,
-                  ),
-                  const SizedBox(width: 8),
-                  _buildVerdictOption(
-                    verdictKey: 'bruised',
-                    label: 'Bruised',
-                    icon: '🍌',
-                    color: AppColors.statusBruised,
-                  ),
-                  const SizedBox(width: 8),
-                  _buildVerdictOption(
-                    verdictKey: 'rotten',
-                    label: 'Rotten',
-                    icon: '🤢',
-                    color: AppColors.statusRotten,
-                  ),
-                ],
+              // Interactive Star Rating Bar & Dynamic Banana Verdict Indicator
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceElevated,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppColors.inputBorder, width: 0.8),
+                ),
+                child: Column(
+                  children: [
+                    // 5 Bintang Interaktif
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(5, (index) {
+                        final starValue = (index + 1).toDouble();
+                        final isFilled = starValue <= _rating;
+
+                        return GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () {
+                            setState(() {
+                              _rating = starValue;
+                            });
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                            child: AnimatedScale(
+                              scale: isFilled ? 1.15 : 1.0,
+                              duration: const Duration(milliseconds: 150),
+                              child: Icon(
+                                isFilled ? Icons.star_rounded : Icons.star_outline_rounded,
+                                size: 38,
+                                color: isFilled ? AppColors.accentYellow : AppColors.textMuted,
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Badge Status Penilaian Berkarakter Pisang
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: _currentVerdictColor.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: _currentVerdictColor.withValues(alpha: 0.4),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          BananaStatusIcon(rating: _rating, size: 20),
+                          const SizedBox(width: 8),
+                          Text(
+                            _currentVerdictLabel,
+                            style: TextStyle(
+                              color: _currentVerdictColor,
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
 
               const SizedBox(height: 18),

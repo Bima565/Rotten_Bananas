@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../core/app_colors.dart';
 import '../data/models/comment_model.dart';
+import 'banana_status_icon.dart';
 
 class CommentItemTile extends StatelessWidget {
   final CommentModel comment;
@@ -155,7 +156,7 @@ class CommentItemTile extends StatelessWidget {
 
               const SizedBox(width: 8),
 
-              // Banana Verdict Badge
+              // Status Rating Badge Pisang Khas
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
@@ -169,8 +170,8 @@ class CommentItemTile extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(comment.verdictIcon, style: const TextStyle(fontSize: 11)),
-                    const SizedBox(width: 4),
+                    BananaStatusIcon(rating: comment.rating, size: 14),
+                    const SizedBox(width: 5),
                     Text(
                       comment.verdictLabel,
                       style: TextStyle(
@@ -202,6 +203,35 @@ class CommentItemTile extends StatelessWidget {
           ),
 
           const SizedBox(height: 10),
+
+          // Rating Bintang (Rotten Tomatoes Audience Style)
+          Row(
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: List.generate(5, (index) {
+                  final starIndex = index + 1;
+                  final isFilled = starIndex <= comment.rating;
+                  return Icon(
+                    isFilled ? Icons.star_rounded : Icons.star_outline_rounded,
+                    size: 15,
+                    color: isFilled ? AppColors.accentYellow : AppColors.textMuted,
+                  );
+                }),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '${comment.rating.toInt()}/5',
+                style: const TextStyle(
+                  color: AppColors.accentYellow,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 8),
 
           // Content Text
           Text(

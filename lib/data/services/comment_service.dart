@@ -42,7 +42,8 @@ class CommentService {
   Future<void> addComment({
     required int movieId,
     required String content,
-    required String bananaVerdict,
+    double rating = 5.0,
+    String? bananaVerdict,
   }) async {
     final cleanContent = content.trim();
     if (cleanContent.isEmpty) {
@@ -66,6 +67,7 @@ class CommentService {
         : (currentUser?.email?.split('@').first ?? 'user');
 
     final avatar = userProfile?.avatarPath ?? currentUser?.photoURL;
+    final verdict = bananaVerdict ?? CommentModel.verdictFromRating(rating);
 
     final docRef = _commentsRef(movieId).doc();
     await docRef.set({
@@ -75,7 +77,8 @@ class CommentService {
       'username': username,
       'user_avatar': avatar,
       'content': cleanContent,
-      'banana_verdict': bananaVerdict,
+      'rating': rating,
+      'banana_verdict': verdict,
       'created_at': FieldValue.serverTimestamp(),
       'updated_at': FieldValue.serverTimestamp(),
     });

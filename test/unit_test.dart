@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_application_1/core/app_colors.dart';
@@ -334,6 +335,14 @@ void main() {
   });
 
   group('CommentModel Tests', () {
+    test('CommentModel verdictFromRating maps stars to correct verdict', () {
+      expect(CommentModel.verdictFromRating(5.0), 'golden_ripe');
+      expect(CommentModel.verdictFromRating(4.0), 'golden_ripe');
+      expect(CommentModel.verdictFromRating(3.0), 'bruised');
+      expect(CommentModel.verdictFromRating(2.0), 'rotten');
+      expect(CommentModel.verdictFromRating(1.0), 'rotten');
+    });
+
     test('CommentModel verdict properties return correct labels, icons, and colors', () {
       final goldenComment = CommentModel(
         id: 'c1',
@@ -343,11 +352,13 @@ void main() {
         username: 'bayuk',
         content: 'Film yang luar biasa!',
         bananaVerdict: 'golden_ripe',
+        rating: 5.0,
         createdAt: DateTime.now(),
       );
-      expect(goldenComment.verdictLabel, 'Golden Ripe');
-      expect(goldenComment.verdictIcon, '🍌');
-      expect(goldenComment.verdictColor, AppColors.statusFresh);
+      expect(goldenComment.verdictLabel, 'Top Markotop');
+      expect(goldenComment.verdictIcon, Icons.workspace_premium_rounded);
+      expect(goldenComment.verdictColor, AppColors.accentYellow);
+      expect(goldenComment.rating, 5.0);
 
       final bruisedComment = CommentModel(
         id: 'c2',
@@ -357,11 +368,13 @@ void main() {
         username: 'ahmadk',
         content: 'Bagus tapi agak membosankan di tengah.',
         bananaVerdict: 'bruised',
+        rating: 3.0,
         createdAt: DateTime.now(),
       );
-      expect(bruisedComment.verdictLabel, 'Bruised');
-      expect(bruisedComment.verdictIcon, '🍌');
+      expect(bruisedComment.verdictLabel, 'Medioker');
+      expect(bruisedComment.verdictIcon, Icons.thumbs_up_down_rounded);
       expect(bruisedComment.verdictColor, AppColors.statusBruised);
+      expect(bruisedComment.rating, 3.0);
 
       final rottenComment = CommentModel(
         id: 'c3',
@@ -371,14 +384,16 @@ void main() {
         username: 'citra',
         content: 'Jelek banget ceritanya.',
         bananaVerdict: 'rotten',
+        rating: 1.0,
         createdAt: DateTime.now(),
       );
-      expect(rottenComment.verdictLabel, 'Rotten Bananas');
-      expect(rottenComment.verdictIcon, '🤢');
+      expect(rottenComment.verdictLabel, 'Ampas');
+      expect(rottenComment.verdictIcon, Icons.heart_broken_rounded);
       expect(rottenComment.verdictColor, AppColors.statusRotten);
+      expect(rottenComment.rating, 1.0);
     });
 
-    test('CommentModel fromMap and toMap serialize correctly', () {
+    test('CommentModel fromMap and toMap serialize correctly with rating', () {
       final now = DateTime.now();
       final map = {
         'movie_id': 550,
@@ -387,6 +402,7 @@ void main() {
         'username': 'bima',
         'user_avatar': 'https://example.com/avatar.jpg',
         'content': 'Sangat seru dan penuh plot twist.',
+        'rating': 4.0,
         'banana_verdict': 'golden_ripe',
         'created_at': now.toIso8601String(),
         'updated_at': now.toIso8601String(),
@@ -400,6 +416,7 @@ void main() {
       expect(comment.username, 'bima');
       expect(comment.userAvatar, 'https://example.com/avatar.jpg');
       expect(comment.content, 'Sangat seru dan penuh plot twist.');
+      expect(comment.rating, 4.0);
       expect(comment.bananaVerdict, 'golden_ripe');
 
       final serialized = comment.toMap();
@@ -407,6 +424,23 @@ void main() {
       expect(serialized['movie_id'], 550);
       expect(serialized['user_id'], 'user_123');
       expect(serialized['content'], 'Sangat seru dan penuh plot twist.');
+      expect(serialized['rating'], 4.0);
+    });
+
+    test('CommentModel fromMap provides backward compatibility when rating is missing', () {
+      final mapWithoutRating = {
+        'movie_id': 123,
+        'user_id': 'u1',
+        'user_name': 'User',
+        'username': 'user',
+        'content': 'Film flop',
+        'banana_verdict': 'bruised',
+        'created_at': DateTime.now().toIso8601String(),
+      };
+
+      final comment = CommentModel.fromMap(mapWithoutRating, 'old_doc');
+      expect(comment.rating, 3.0); // otomatis fallback ke 3.0 karena bruised
+      expect(comment.bananaVerdict, 'bruised');
     });
 
     test('CommentModel timeAgo calculates relative time correctly', () {
