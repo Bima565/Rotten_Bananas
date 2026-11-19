@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../local/database_helper.dart';
 import '../models/movie_model.dart';
 
 class WatchlistService {
@@ -54,11 +55,13 @@ class WatchlistService {
 
     if (doc.exists) {
       await docRef.delete();
+      await DatabaseHelper.instance.deleteFromWatchlist(movie.id);
       return false; // Berhasil dihapus
     } else {
       final data = movie.toJson();
       data['added_at'] = DateTime.now().toIso8601String();
       await docRef.set(data);
+      await DatabaseHelper.instance.insertWatchlist(movie);
       return true; // Berhasil disimpan
     }
   }
@@ -66,7 +69,37 @@ class WatchlistService {
   // Hapus satu film dari watchlist
   Future<void> removeFromWatchlist(int movieId) async {
     final ref = _watchlistRef;
-    if (ref == null) return;
-    await ref.doc(movieId.toString()).delete();
+    if (ref != null) {
+      try {
+        await ref.doc(movieId.toString()).delete();
+      } catch (_) {}
+    }
+    await DatabaseHelper.instance.deleteFromWatchlist(movieId);
+  }
+
+  // Bersihkan seluruh watchlist (Firestore & SQLite)
+  Future<void> clearAllWatchlist() async {
+    final ref = _watchlistRef;
+    if (ref != null) {
+      try {
+        final snapshot = await ref.get();
+        for (final doc in snapshot.docs) {
+          await doc.reference.delete();
+        }
+      } catch (_) {}
+    }
+    await DatabaseHelper.instance.clearWatchlist();
+  }
+
+  // Hitung jumlah watchlist
+  Future<int> getWatchlistCount() async {
+    final ref = _watchlistRef;
+    if (ref != null) {
+      try {
+        final snapshot = await ref.get();
+        return snapshot.docs.length;
+      } catch (_) {}
+    }
+    return await DatabaseHelper.instance.getWatchlistCount();
   }
 }

@@ -495,4 +495,48 @@ class AuthService {
     final cleanEmail = email.trim().toLowerCase();
     await _firebaseAuth?.sendPasswordResetEmail(email: cleanEmail);
   }
+
+  /// Update data profil pengguna di Firebase Auth, Firestore, dan Session
+  Future<void> updateUserProfile({
+    required String fullName,
+    required String username,
+    required String bio,
+    required String favoriteGenres,
+    String? avatarPath,
+  }) async {
+    final user = _firebaseAuth?.currentUser;
+    final cleanUsername = username.trim().toLowerCase();
+
+    if (user != null) {
+      try {
+        await user.updateDisplayName(fullName.trim());
+      } catch (_) {}
+
+      if (_firestore != null) {
+        try {
+          final data = <String, dynamic>{
+            'full_name': fullName.trim(),
+            'username': cleanUsername,
+            'bio': bio.trim(),
+            'favorite_genres': favoriteGenres,
+            'updated_at': DateTime.now().toIso8601String(),
+          };
+          if (avatarPath != null) {
+            data['avatar_path'] = avatarPath;
+          }
+          await _firestore!.collection('users').doc(user.uid).set(
+            data,
+            SetOptions(merge: true),
+          );
+        } catch (_) {}
+      }
+    }
+
+    final currentEmail = await SessionManager.getActiveEmail() ?? user?.email ?? '';
+    await SessionManager.saveSession(
+      userId: 1,
+      username: cleanUsername,
+      email: currentEmail,
+    );
+  }
 }

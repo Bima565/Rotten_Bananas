@@ -2,8 +2,10 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
+import '../components/user_avatar_view.dart';
 import '../core/app_colors.dart';
 import '../core/banana_score_helper.dart';
+import '../data/local/database_helper.dart';
 import '../data/models/genre_model.dart';
 import '../data/models/movie_model.dart';
 import '../data/services/auth_service.dart';
@@ -11,8 +13,8 @@ import '../data/services/tmdb_service.dart';
 import '../data/services/watchlist_service.dart';
 import 'category_movies_page.dart';
 import 'explore_filter_page.dart';
-import 'login.dart';
 import 'movie_detail_page.dart';
+import 'profile_page.dart';
 import 'watchlist_page.dart';
 
 class BerandaPage extends StatefulWidget {
@@ -28,6 +30,7 @@ class _BerandaPageState extends State<BerandaPage> {
   final WatchlistService _watchlistService = WatchlistService();
 
   String _userName = 'Penggemar Film';
+  String? _userAvatarPath;
   int _currentNavIndex = 0;
   int _selectedGenreId = 0; // 0 = Semua
   int _carouselIndex = 0;
@@ -49,10 +52,12 @@ class _BerandaPageState extends State<BerandaPage> {
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
 
-    final user = await _authService.getCurrentUser();
+    final localUser = await DatabaseHelper.instance.getFirstUser();
+    final user = await _authService.getCurrentUser() ?? localUser;
     if (user != null && mounted) {
       setState(() {
         _userName = user.fullName.split(' ').first;
+        _userAvatarPath = user.avatarPath;
       });
     }
 
@@ -92,41 +97,6 @@ class _BerandaPageState extends State<BerandaPage> {
     return movies.where((m) => m.genreIds.contains(_selectedGenreId)).toList();
   }
 
-  Future<void> _handleLogout() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surfaceCard,
-        title: const Text('Keluar Akun', style: TextStyle(color: Colors.white)),
-        content: const Text(
-          'Apakah Anda yakin ingin keluar dari akun ini?',
-          style: TextStyle(color: AppColors.textSecondary),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Batal', style: TextStyle(color: AppColors.textSecondary)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.statusRotten),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Keluar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true) {
-      await _authService.logout();
-      if (!mounted) return;
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => const LoginPage()),
-        (route) => false,
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -145,47 +115,77 @@ class _BerandaPageState extends State<BerandaPage> {
             _buildHomeContent(),
             const ExploreFilterPage(),
             const WatchlistPage(),
+            ProfilePage(
+              onNavigateToWatchlist: () {
+                setState(() => _currentNavIndex = 2);
+              },
+            ),
           ],
         ),
-        bottomNavigationBar: Container(
-          decoration: const BoxDecoration(
-            color: AppColors.surfaceCard,
-            border: Border(top: BorderSide(color: AppColors.inputBorder, width: 0.5)),
-          ),
-          child: BottomNavigationBar(
-            currentIndex: _currentNavIndex,
-            onTap: (index) {
-              if (index == 3) {
-                _handleLogout();
-              } else {
-                setState(() => _currentNavIndex = index);
-              }
-            },
-            backgroundColor: AppColors.surfaceCard,
-            selectedItemColor: AppColors.accentYellow,
-            unselectedItemColor: AppColors.textSecondary,
-            selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11),
-            unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 11),
-            type: BottomNavigationBarType.fixed,
-            items: const [
-              BottomNavigationBarItem(
-                icon: Icon(Icons.home_filled),
-                label: 'Beranda',
+        bottomNavigationBar: _buildBottomNav(),
+      ),
+    );
+  }
+
+  Widget _buildBottomNav() {
+    final navItems = [
+      {'icon': Icons.home_filled, 'label': 'Beranda'},
+      {'icon': Icons.explore_outlined, 'label': 'Eksplor'},
+      {'icon': Icons.bookmark_outline_rounded, 'label': 'Watchlist'},
+      {'icon': Icons.person_outline_rounded, 'label': 'Profil'},
+    ];
+
+    return Container(
+      padding: const EdgeInsets.only(top: 8, bottom: 6),
+      decoration: const BoxDecoration(
+        color: AppColors.surfaceCard,
+        border: Border(top: BorderSide(color: AppColors.inputBorder, width: 0.6)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: List.generate(navItems.length, (index) {
+            final isSelected = _currentNavIndex == index;
+            final item = navItems[index];
+
+            return Expanded(
+              child: InkWell(
+                onTap: () {
+                  setState(() => _currentNavIndex = index);
+                },
+                splashColor: Colors.transparent,
+                highlightColor: Colors.transparent,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      item['icon'] as IconData,
+                      color: isSelected ? AppColors.accentYellow : AppColors.textSecondary,
+                      size: 24,
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      item['label'] as String,
+                      style: TextStyle(
+                        color: isSelected ? AppColors.accentYellow : AppColors.textSecondary,
+                        fontSize: 11,
+                        fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      height: 2.5,
+                      width: 22,
+                      decoration: BoxDecoration(
+                        color: isSelected ? AppColors.accentYellow : Colors.transparent,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.explore_outlined),
-                label: 'Eksplor',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.bookmark_outline_rounded),
-                label: 'Watchlist',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.person_outline_rounded),
-                label: 'Profil',
-              ),
-            ],
-          ),
+            );
+          }),
         ),
       ),
     );
@@ -237,18 +237,14 @@ class _BerandaPageState extends State<BerandaPage> {
             ),
             const SizedBox(width: 8),
             GestureDetector(
-              onTap: _handleLogout,
-              child: CircleAvatar(
-                radius: 17,
-                backgroundColor: AppColors.surfaceElevated,
-                child: Text(
-                  _userName.isNotEmpty ? _userName[0].toUpperCase() : 'U',
-                  style: const TextStyle(
-                    color: AppColors.accentYellow,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 14,
-                  ),
-                ),
+              onTap: () {
+                setState(() => _currentNavIndex = 3);
+              },
+              child: UserAvatarView(
+                avatarPath: _userAvatarPath,
+                initials: _userName.isNotEmpty ? _userName[0].toUpperCase() : 'U',
+                size: 34,
+                borderWidth: 1.5,
               ),
             ),
           ],
